@@ -17,6 +17,8 @@ class ResultsScreen extends StatefulWidget {
 class _ResultsScreenState extends State<ResultsScreen> {
   List<String>? _allPossibleWords;
   bool _isLoadingWords = false;
+  String? _selectedWord;
+  List<int>? _highlightedPath;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +86,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // Grille de révision
+                _buildReviewGrid(game.grid),
 
                 const SizedBox(height: 24),
 
@@ -172,7 +179,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildWordsList(currentPlayerResult.words),
+                _buildWordsList(currentPlayerResult.words, game.grid),
 
                 const SizedBox(height: 24),
 
@@ -239,7 +246,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: _buildPossibleWordsList(),
+            child: _buildPossibleWordsList(grid),
           ),
         ],
       ),
@@ -264,7 +271,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     });
   }
 
-  Widget _buildPossibleWordsList() {
+  Widget _buildPossibleWordsList(List<String> grid) {
     if (_isLoadingWords) {
       return const Center(
         child: Padding(
@@ -324,18 +331,26 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 spacing: 6,
                 runSpacing: 4,
                 children: words.map((word) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.orange[200]!),
-                    ),
-                    child: Text(
-                      word,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[800],
+                  final isSelected = _selectedWord == word;
+                  return GestureDetector(
+                    onTap: () => _selectWord(word, grid),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.orange[300] : Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isSelected ? Colors.orange[700]! : Colors.orange[200]!,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Text(
+                        word,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isSelected ? Colors.orange[900] : Colors.grey[800],
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
                       ),
                     ),
                   );
@@ -346,6 +361,165 @@ class _ResultsScreenState extends State<ResultsScreen> {
         );
       }).toList(),
     );
+  }
+
+  Widget _buildReviewGrid(List<String> grid) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.brown[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.brown[200]!),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.grid_3x3, color: Colors.brown[700]),
+              const SizedBox(width: 8),
+              Text(
+                'Grille de la manche',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.brown[800],
+                ),
+              ),
+              const Spacer(),
+              if (_selectedWord != null)
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedWord = null;
+                      _highlightedPath = null;
+                    });
+                  },
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text('Effacer'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.brown[600],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_selectedWord != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.green[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.green[300]!),
+              ),
+              child: Text(
+                'Mot sélectionné: $_selectedWord',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[800],
+                ),
+              ),
+            ),
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.brown[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: 9,
+                itemBuilder: (context, index) {
+                  final isHighlighted = _highlightedPath?.contains(index) ?? false;
+                  final pathIndex = _highlightedPath?.indexOf(index) ?? -1;
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isHighlighted ? Colors.green[300] : Colors.amber[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isHighlighted ? Colors.green[700]! : Colors.brown[400]!,
+                        width: isHighlighted ? 3 : 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.brown.withValues(alpha: 0.2),
+                          blurRadius: 2,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Text(
+                            grid[index],
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.brown[900],
+                            ),
+                          ),
+                        ),
+                        if (isHighlighted && pathIndex >= 0)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.green[700],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${pathIndex + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cliquez sur un mot ci-dessous pour voir son chemin',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.brown[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _selectWord(String word, List<String> grid) {
+    final gameLogic = GameLogicService();
+    final paths = gameLogic.findWordPath(grid, word);
+
+    setState(() {
+      _selectedWord = word;
+      _highlightedPath = paths?.first;
+    });
   }
 
   Widget _buildRankBadge(int rank) {
@@ -391,7 +565,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _buildWordsList(List<Word> words) {
+  Widget _buildWordsList(List<Word> words, List<String> grid) {
     if (words.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -435,10 +609,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
               spacing: 8,
               runSpacing: 4,
               children: validWords.map((word) {
-                return Chip(
-                  label: Text('${word.text} (+${word.points})'),
-                  backgroundColor: Colors.green[100],
-                  side: BorderSide(color: Colors.green[300]!),
+                final isSelected = _selectedWord == word.text;
+                return GestureDetector(
+                  onTap: () => _selectWord(word.text, grid),
+                  child: Chip(
+                    label: Text('${word.text} (+${word.points})'),
+                    backgroundColor: isSelected ? Colors.green[300] : Colors.green[100],
+                    side: BorderSide(
+                      color: isSelected ? Colors.green[700]! : Colors.green[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
                 );
               }).toList(),
             ),
@@ -457,16 +638,23 @@ class _ResultsScreenState extends State<ResultsScreen> {
               spacing: 8,
               runSpacing: 4,
               children: duplicateWords.map((word) {
-                return Chip(
-                  label: Text(
-                    word.text,
-                    style: const TextStyle(
-                      decoration: TextDecoration.lineThrough,
-                      color: Colors.grey,
+                final isSelected = _selectedWord == word.text;
+                return GestureDetector(
+                  onTap: () => _selectWord(word.text, grid),
+                  child: Chip(
+                    label: Text(
+                      word.text,
+                      style: const TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    backgroundColor: isSelected ? Colors.grey[400] : Colors.grey[200],
+                    side: BorderSide(
+                      color: isSelected ? Colors.grey[700]! : Colors.grey[400]!,
+                      width: isSelected ? 2 : 1,
                     ),
                   ),
-                  backgroundColor: Colors.grey[200],
-                  side: BorderSide(color: Colors.grey[400]!),
                 );
               }).toList(),
             ),
