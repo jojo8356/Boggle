@@ -1,0 +1,29 @@
+name: boggle_game
+description: "Jeu de Boggle multijoueur en français"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  flutter_blue_plus: ^1.35.5
+  flutter_p2p_connection: ^3.0.3
+  web_socket_channel: ^3.0.1
+  uuid: ^4.5.1
+  permission_handler: ^11.3.1
+  network_info_plus: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
