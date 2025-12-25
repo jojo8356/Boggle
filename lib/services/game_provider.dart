@@ -195,6 +195,23 @@ class GameProvider extends ChangeNotifier {
     startGame();
   }
 
+  /// Mode test - Démarre une partie solo sans connexion (debug uniquement)
+  void startTestGame(String playerName) {
+    final playerId = const Uuid().v4();
+
+    _currentPlayer = Player(
+      id: playerId,
+      name: playerName,
+      isHost: true,
+    );
+
+    _game = Game(id: const Uuid().v4());
+    _game!.addPlayer(_currentPlayer!);
+    _game!.startGame();
+    _startTimer();
+    notifyListeners();
+  }
+
   int getCurrentScore() {
     if (_currentPlayer == null || _game == null) return 0;
 

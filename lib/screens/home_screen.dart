@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/game_provider.dart';
 import '../utils/constants.dart';
 import 'lobby_screen.dart';
+import 'game_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,6 +53,26 @@ class _HomeScreenState extends State<HomeScreen> {
           isHost: isHost,
           hostAddress: hostAddress,
         ),
+      ),
+    );
+  }
+
+  void _startTestGame() {
+    final playerName = _nameController.text.trim();
+    if (playerName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez entrer votre nom')),
+      );
+      return;
+    }
+
+    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    gameProvider.startTestGame(playerName);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const GameScreen(),
       ),
     );
   }
@@ -140,6 +164,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.orange,
                   onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
                 ),
+                // Bouton mode test (debug uniquement)
+                if (kDebugMode) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'MODE DÉVELOPPEUR',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ConnectionButton(
+                    icon: Icons.bug_report,
+                    label: 'Mode Test',
+                    description: 'Jouer seul (debug)',
+                    color: Colors.red,
+                    onTap: _startTestGame,
+                  ),
+                ],
               ],
             ),
           ),
