@@ -91,6 +91,54 @@ class GameLogicService {
     return upper;
   }
 
+  /// Trouve tous les mots possibles dans la grille
+  List<String> findAllPossibleWords(List<String> grid) {
+    final Set<String> foundWords = {};
+
+    // Pour chaque position de départ
+    for (int startPos = 0; startPos < 9; startPos++) {
+      _findAllWordsDFS(grid, startPos, [startPos], '', foundWords);
+    }
+
+    // Trier par longueur décroissante puis alphabétiquement
+    final sortedWords = foundWords.toList()
+      ..sort((a, b) {
+        final lengthCompare = b.length.compareTo(a.length);
+        if (lengthCompare != 0) return lengthCompare;
+        return a.compareTo(b);
+      });
+
+    return sortedWords;
+  }
+
+  void _findAllWordsDFS(
+    List<String> grid,
+    int currentPos,
+    List<int> currentPath,
+    String currentWord,
+    Set<String> foundWords,
+  ) {
+    // Construire le mot actuel
+    final word = currentWord + grid[currentPos];
+
+    // Si le mot a au moins 3 lettres et est valide, l'ajouter
+    if (word.length >= GameConstants.minWordLength && isValidWord(word)) {
+      foundWords.add(word);
+    }
+
+    // Limiter la profondeur à 9 (taille de la grille)
+    if (currentPath.length >= 9) return;
+
+    // Explorer les voisins
+    for (int neighbor in _adjacencies[currentPos]) {
+      if (!currentPath.contains(neighbor)) {
+        currentPath.add(neighbor);
+        _findAllWordsDFS(grid, neighbor, currentPath, word, foundWords);
+        currentPath.removeLast();
+      }
+    }
+  }
+
   ValidationResult validateWord(List<String> grid, String word, List<String> alreadyFound) {
     word = word.toUpperCase();
 

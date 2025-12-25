@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
+import '../services/game_logic_service.dart';
 import '../models/word.dart';
 import '../models/game_result.dart';
+import '../utils/constants.dart';
 import 'home_screen.dart';
 
-class ResultsScreen extends StatelessWidget {
+class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
+
+  @override
+  State<ResultsScreen> createState() => _ResultsScreenState();
+}
+
+class _ResultsScreenState extends State<ResultsScreen> {
+  List<String>? _allPossibleWords;
+  bool _isLoadingWords = false;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +176,11 @@ class ResultsScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
+                // Section tous les mots possibles (cachée par défaut)
+                _buildAllPossibleWordsSection(game.grid),
+
+                const SizedBox(height: 24),
+
                 // Vote nouvelle partie
                 _buildNewGameSection(context, gameProvider),
 
@@ -191,6 +206,145 @@ class ResultsScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildAllPossibleWordsSection(List<String> grid) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[300]!),
+      ),
+      child: ExpansionTile(
+        leading: Icon(Icons.lightbulb, color: Colors.orange[700]),
+        title: Text(
+          'Tous les mots possibles',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.orange[800],
+          ),
+        ),
+        subtitle: _allPossibleWords != null
+            ? Text(
+                '${_allPossibleWords!.length} mots trouvés',
+                style: TextStyle(color: Colors.orange[600], fontSize: 12),
+              )
+            : null,
+        onExpansionChanged: (expanded) {
+          if (expanded && _allPossibleWords == null && !_isLoadingWords) {
+            _loadAllPossibleWords(grid);
+          }
+        },
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildPossibleWordsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _loadAllPossibleWords(List<String> grid) {
+    setState(() {
+      _isLoadingWords = true;
+    });
+
+    // Calculer dans un Future pour ne pas bloquer l'UI
+    Future.microtask(() {
+      final gameLogic = GameLogicService();
+      final words = gameLogic.findAllPossibleWords(grid);
+      if (mounted) {
+        setState(() {
+          _allPossibleWords = words;
+          _isLoadingWords = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildPossibleWordsList() {
+    if (_isLoadingWords) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Recherche des mots...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_allPossibleWords == null || _allPossibleWords!.isEmpty) {
+      return const Text('Aucun mot trouvé');
+    }
+
+    // Grouper par longueur
+    final wordsByLength = <int, List<String>>{};
+    for (final word in _allPossibleWords!) {
+      final length = word.length;
+      wordsByLength.putIfAbsent(length, () => []).add(word);
+    }
+
+    final sortedLengths = wordsByLength.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sortedLengths.map((length) {
+        final words = wordsByLength[length]!;
+        final points = GameConstants.getPoints(length);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange[200],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$length lettres (+$points pts) - ${words.length} mots',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.orange[900],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: words.map((word) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.orange[200]!),
+                    ),
+                    child: Text(
+                      word,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
