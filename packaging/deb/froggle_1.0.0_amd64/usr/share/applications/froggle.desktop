@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Froggle
+Comment=Jeu de Boggle multijoueur en français
+Exec=/usr/bin/froggle
+Icon=froggle
+Terminal=false
+Type=Application
+Categories=Game;WordGame;
+Keywords=boggle;word;game;multiplayer;french;

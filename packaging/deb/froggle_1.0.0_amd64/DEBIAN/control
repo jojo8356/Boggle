@@ -1,0 +1,11 @@
+Package: froggle
+Version: 1.0.0
+Section: games
+Priority: optional
+Architecture: amd64
+Depends: libgtk-3-0, libblkid1, liblzma5
+Maintainer: Froggle Team <contact@froggle.app>
+Description: Froggle - Jeu de Boggle multijoueur en français
+ Un jeu de mots multijoueur inspiré du Boggle classique.
+ Trouvez un maximum de mots dans une grille de lettres en 3 minutes.
+ Supporte le multijoueur via Internet, Bluetooth et WiFi Direct.
