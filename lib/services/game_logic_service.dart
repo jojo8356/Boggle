@@ -1,32 +1,44 @@
+import 'dart:math';
 import '../utils/constants.dart';
 import 'dictionary_service.dart';
 
 class GameLogicService {
   final DictionaryService _dictionaryService = DictionaryService();
 
-  static const List<List<int>> _adjacencies = [
-    [1, 3, 4],         // 0: droite, bas, diagonale bas-droite
-    [0, 2, 3, 4, 5],   // 1: gauche, droite, diagonales et bas
-    [1, 4, 5],         // 2: gauche, bas, diagonale bas-gauche
-    [0, 1, 4, 6, 7],   // 3: haut, diagonales et droite, bas
-    [0, 1, 2, 3, 5, 6, 7, 8], // 4: centre - toutes les directions
-    [1, 2, 4, 7, 8],   // 5: haut, diagonales et gauche, bas
-    [3, 4, 7],         // 6: haut, droite, diagonale haut-droite
-    [3, 4, 5, 6, 8],   // 7: haut, diagonales et gauche, droite
-    [4, 5, 7],         // 8: haut, gauche, diagonale haut-gauche
-  ];
+  /// Calcule la taille de la grille à partir du nombre de cellules
+  int _getGridSize(List<String> grid) => sqrt(grid.length).round();
 
-  bool areAdjacent(int pos1, int pos2) {
-    if (pos1 < 0 || pos1 >= 9 || pos2 < 0 || pos2 >= 9) return false;
-    return _adjacencies[pos1].contains(pos2);
+  /// Calcule les voisins d'une position pour une grille de taille donnée
+  List<int> getNeighbors(int pos, int gridSize) {
+    final int row = pos ~/ gridSize;
+    final int col = pos % gridSize;
+    final List<int> neighbors = [];
+
+    for (int dr = -1; dr <= 1; dr++) {
+      for (int dc = -1; dc <= 1; dc++) {
+        if (dr == 0 && dc == 0) continue;
+        final int newRow = row + dr;
+        final int newCol = col + dc;
+        if (newRow >= 0 && newRow < gridSize && newCol >= 0 && newCol < gridSize) {
+          neighbors.add(newRow * gridSize + newCol);
+        }
+      }
+    }
+    return neighbors;
   }
 
-  bool isValidPath(List<int> path) {
+  bool areAdjacent(int pos1, int pos2, int gridSize) {
+    final int totalCells = gridSize * gridSize;
+    if (pos1 < 0 || pos1 >= totalCells || pos2 < 0 || pos2 >= totalCells) return false;
+    return getNeighbors(pos1, gridSize).contains(pos2);
+  }
+
+  bool isValidPath(List<int> path, int gridSize) {
     if (path.isEmpty) return false;
     if (path.length != path.toSet().length) return false; // pas de répétition
 
     for (int i = 0; i < path.length - 1; i++) {
-      if (!areAdjacent(path[i], path[i + 1])) {
+      if (!areAdjacent(path[i], path[i + 1], gridSize)) {
         return false;
       }
     }
@@ -44,10 +56,11 @@ class GameLogicService {
   List<List<int>>? findWordPath(List<String> grid, String word) {
     word = word.toUpperCase();
     List<List<int>> allPaths = [];
+    final int gridSize = _getGridSize(grid);
 
-    for (int startPos = 0; startPos < 9; startPos++) {
+    for (int startPos = 0; startPos < grid.length; startPos++) {
       if (_normalizeChar(grid[startPos]) == _normalizeChar(word[0])) {
-        _findPathDFS(grid, word, startPos, [startPos], allPaths);
+        _findPathDFS(grid, word, startPos, [startPos], allPaths, gridSize);
       }
     }
 
@@ -60,6 +73,7 @@ class GameLogicService {
     int currentPos,
     List<int> currentPath,
     List<List<int>> allPaths,
+    int gridSize,
   ) {
     if (currentPath.length == word.length) {
       allPaths.add(List.from(currentPath));
@@ -69,11 +83,11 @@ class GameLogicService {
     int nextCharIndex = currentPath.length;
     String nextChar = _normalizeChar(word[nextCharIndex]);
 
-    for (int neighbor in _adjacencies[currentPos]) {
+    for (int neighbor in getNeighbors(currentPos, gridSize)) {
       if (!currentPath.contains(neighbor) &&
           _normalizeChar(grid[neighbor]) == nextChar) {
         currentPath.add(neighbor);
-        _findPathDFS(grid, word, neighbor, currentPath, allPaths);
+        _findPathDFS(grid, word, neighbor, currentPath, allPaths, gridSize);
         currentPath.removeLast();
       }
     }
@@ -91,13 +105,14 @@ class GameLogicService {
     return upper;
   }
 
-  /// Trouve tous les mots possibles dans la grille
+  /// Trouve tous les mots possibles dans la grille (optimisé avec Trie)
   List<String> findAllPossibleWords(List<String> grid) {
     final Set<String> foundWords = {};
+    final int gridSize = _getGridSize(grid);
 
     // Pour chaque position de départ
-    for (int startPos = 0; startPos < 9; startPos++) {
-      _findAllWordsDFS(grid, startPos, [startPos], '', foundWords);
+    for (int startPos = 0; startPos < grid.length; startPos++) {
+      _findAllWordsDFS(grid, startPos, [startPos], '', foundWords, gridSize);
     }
 
     // Trier par longueur décroissante puis alphabétiquement
@@ -117,23 +132,30 @@ class GameLogicService {
     List<int> currentPath,
     String currentWord,
     Set<String> foundWords,
+    int gridSize,
   ) {
     // Construire le mot actuel
     final word = currentWord + grid[currentPos];
 
-    // Si le mot a au moins 3 lettres et est valide, l'ajouter
-    if (word.length >= GameConstants.minWordLength && isValidWord(word)) {
+    // Vérifier le préfixe avec le Trie (élagage)
+    final (hasPrefix, isWord) = _dictionaryService.checkPrefix(word);
+
+    // Si ce préfixe n'existe pas, on arrête cette branche
+    if (!hasPrefix) return;
+
+    // Si c'est un mot valide (>= 3 lettres), l'ajouter
+    if (isWord) {
       foundWords.add(word);
     }
 
-    // Limiter la profondeur à 9 (taille de la grille)
-    if (currentPath.length >= 9) return;
+    // Limiter la profondeur à la taille de la grille
+    if (currentPath.length >= grid.length) return;
 
     // Explorer les voisins
-    for (int neighbor in _adjacencies[currentPos]) {
+    for (int neighbor in getNeighbors(currentPos, gridSize)) {
       if (!currentPath.contains(neighbor)) {
         currentPath.add(neighbor);
-        _findAllWordsDFS(grid, neighbor, currentPath, word, foundWords);
+        _findAllWordsDFS(grid, neighbor, currentPath, word, foundWords, gridSize);
         currentPath.removeLast();
       }
     }

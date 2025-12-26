@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = boggle_game
+PRODUCT_NAME = Froggle
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.boggle.boggleGame
+PRODUCT_BUNDLE_IDENTIFIER = com.froggle.froggleGame
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.boggle. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 com.froggle. All rights reserved.

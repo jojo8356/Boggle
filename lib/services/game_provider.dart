@@ -5,12 +5,15 @@ import '../models/game.dart';
 import '../models/player.dart';
 import '../models/word.dart';
 import '../utils/constants.dart';
+import '../utils/platform_utils.dart';
 import 'dictionary_service.dart';
 import 'game_logic_service.dart';
 import 'connection/connection_interface.dart';
 import 'connection/internet_connection.dart';
 import 'connection/bluetooth_connection.dart';
+import 'connection/bluetooth_connection_stub.dart';
 import 'connection/wifi_direct_connection.dart';
+import 'connection/wifi_direct_connection_stub.dart';
 
 class GameProvider extends ChangeNotifier {
   Game? _game;
@@ -49,10 +52,14 @@ class GameProvider extends ChangeNotifier {
         _connection = InternetConnection();
         break;
       case ConnectionType.bluetooth:
-        _connection = BluetoothConnection();
+        _connection = PlatformUtils.isBluetoothSupported
+            ? BluetoothConnection()
+            : BluetoothConnectionStub();
         break;
       case ConnectionType.wifiDirect:
-        _connection = WifiDirectConnection();
+        _connection = PlatformUtils.isWifiDirectSupported
+            ? WifiDirectConnection()
+            : WifiDirectConnectionStub();
         break;
     }
 
@@ -210,6 +217,15 @@ class GameProvider extends ChangeNotifier {
     _game!.startGame();
     _startTimer();
     notifyListeners();
+  }
+
+  /// Mode test - Vérifie si on est en mode test (pas de connexion)
+  bool get isTestMode => _connection == null && _game != null;
+
+  /// Arrête la partie immédiatement (mode test uniquement)
+  void stopTestGame() {
+    if (!isTestMode) return;
+    endGame();
   }
 
   int getCurrentScore() {

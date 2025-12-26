@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
@@ -20,6 +21,7 @@ class _GameScreenState extends State<GameScreen> {
   final GlobalKey<_WordInputWithFeedbackState> _wordInputKey = GlobalKey();
   List<int> _highlightedPath = [];
   bool _isHighlightValid = true;
+  GameProvider? _gameProvider;
 
   @override
   void initState() {
@@ -29,15 +31,14 @@ class _GameScreenState extends State<GameScreen> {
 
   void _checkGameEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final gameProvider = context.read<GameProvider>();
-      gameProvider.addListener(_onGameStateChange);
+      _gameProvider = context.read<GameProvider>();
+      _gameProvider?.addListener(_onGameStateChange);
     });
   }
 
   void _onGameStateChange() {
-    final gameProvider = context.read<GameProvider>();
-    if (gameProvider.game?.state == GameState.finished) {
-      gameProvider.removeListener(_onGameStateChange);
+    if (_gameProvider?.game?.state == GameState.finished) {
+      _gameProvider?.removeListener(_onGameStateChange);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const ResultsScreen()),
@@ -81,6 +82,9 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth > 600;
+
     return Scaffold(
       body: SafeArea(
         child: Consumer<GameProvider>(
@@ -100,102 +104,235 @@ class _GameScreenState extends State<GameScreen> {
                     .toList() ??
                 [];
 
-            return Column(
-              children: [
-                // Timer en haut
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: TimerWidget(
-                    remainingSeconds: game.remainingSeconds,
-                    isRunning: game.state == GameState.playing,
-                  ),
-                ),
-
-                // Score display
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ScoreDisplay(
-                    currentScore: gameProvider.getCurrentScore(),
-                    totalScore: currentPlayer?.score ?? 0,
-                    wordCount: playerWords.length,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Grille Boggle
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: BoggleGrid(
-                    letters: game.grid,
-                    highlightedPath: _highlightedPath,
-                    isHighlightValid: _isHighlightValid,
-                    onPathSelected: (path) {
-                      // Construire le mot à partir du path
-                      final word = path.map((i) => game.grid[i]).join();
-                      _handleWordSubmit(word);
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Input mot
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _WordInputWithFeedback(
-                    key: _wordInputKey,
-                    onWordSubmitted: _handleWordSubmit,
-                    enabled: game.state == GameState.playing,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Liste des mots trouvés
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Vos mots (${playerWords.length})',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: WordList(
-                              words: playerWords,
-                              showDuplicates: false,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
+            if (isWideScreen) {
+              // Layout horizontal pour desktop/tablette
+              return _buildWideLayout(game, gameProvider, currentPlayer, playerWords);
+            } else {
+              // Layout vertical pour mobile
+              return _buildNarrowLayout(game, gameProvider, currentPlayer, playerWords);
+            }
           },
         ),
       ),
     );
   }
 
+  Widget _buildWideLayout(game, GameProvider gameProvider, currentPlayer, List<Word> playerWords) {
+    return Row(
+      children: [
+        // Panneau gauche: grille et input
+        Expanded(
+          flex: 2,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Bouton arrêter (mode test uniquement)
+                  if (kDebugMode && gameProvider.isTestMode)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ElevatedButton.icon(
+                        onPressed: () => gameProvider.stopTestGame(),
+                        icon: const Icon(Icons.stop),
+                        label: const Text('Arrêter la partie'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  // Timer
+                  TimerWidget(
+                    remainingSeconds: game.remainingSeconds,
+                    isRunning: game.state == GameState.playing,
+                  ),
+                  const SizedBox(height: 12),
+                  // Score
+                  ScoreDisplay(
+                    currentScore: gameProvider.getCurrentScore(),
+                    totalScore: currentPlayer?.score ?? 0,
+                    wordCount: playerWords.length,
+                  ),
+                  const SizedBox(height: 16),
+                  // Grille avec taille contrainte
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 350, maxHeight: 350),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: BoggleGrid(
+                        letters: game.grid,
+                        highlightedPath: _highlightedPath,
+                        isHighlightValid: _isHighlightValid,
+                        onPathSelected: (path) {
+                          final word = path.map((i) => game.grid[i]).join();
+                          _handleWordSubmit(word);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Input
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 350),
+                      child: _WordInputWithFeedback(
+                        key: _wordInputKey,
+                        onWordSubmitted: _handleWordSubmit,
+                        enabled: game.state == GameState.playing,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Panneau droit: liste des mots
+        Expanded(
+          flex: 1,
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Vos mots (${playerWords.length})',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: WordList(
+                      words: playerWords,
+                      showDuplicates: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNarrowLayout(game, GameProvider gameProvider, currentPlayer, List<Word> playerWords) {
+    return Column(
+      children: [
+        // Bouton arrêter (mode test uniquement)
+        if (kDebugMode && gameProvider.isTestMode)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ElevatedButton.icon(
+              onPressed: () => gameProvider.stopTestGame(),
+              icon: const Icon(Icons.stop),
+              label: const Text('Arrêter la partie'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        // Timer en haut
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: TimerWidget(
+            remainingSeconds: game.remainingSeconds,
+            isRunning: game.state == GameState.playing,
+          ),
+        ),
+
+        // Score display
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ScoreDisplay(
+            currentScore: gameProvider.getCurrentScore(),
+            totalScore: currentPlayer?.score ?? 0,
+            wordCount: playerWords.length,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Grille Boggle
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: BoggleGrid(
+            letters: game.grid,
+            highlightedPath: _highlightedPath,
+            isHighlightValid: _isHighlightValid,
+            onPathSelected: (path) {
+              // Construire le mot à partir du path
+              final word = path.map((i) => game.grid[i]).join();
+              _handleWordSubmit(word);
+            },
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Input mot
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _WordInputWithFeedback(
+            key: _wordInputKey,
+            onWordSubmitted: _handleWordSubmit,
+            enabled: game.state == GameState.playing,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Liste des mots trouvés
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Vos mots (${playerWords.length})',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: WordList(
+                      words: playerWords,
+                      showDuplicates: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
-    final gameProvider = context.read<GameProvider>();
-    gameProvider.removeListener(_onGameStateChange);
+    _gameProvider?.removeListener(_onGameStateChange);
     super.dispose();
   }
 }

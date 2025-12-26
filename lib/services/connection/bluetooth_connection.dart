@@ -34,7 +34,7 @@ class BluetoothConnection implements ConnectionInterface {
 
   @override
   Future<void> hostGame(Game game) async {
-    _deviceName = 'Boggle Host';
+    _deviceName = 'Froggle Host';
     // En mode host, on attend les connexions
     // Note: Flutter Blue Plus ne supporte pas le mode peripheral/advertiser
     // On utilise un mode simplifié où le host scanne aussi

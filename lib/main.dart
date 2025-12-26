@@ -11,18 +11,18 @@ void main() async {
   final dictionary = DictionaryService();
   await dictionary.loadDictionary();
 
-  runApp(const BoggleApp());
+  runApp(const FroggleApp());
 }
 
-class BoggleApp extends StatelessWidget {
-  const BoggleApp({super.key});
+class FroggleApp extends StatelessWidget {
+  const FroggleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => GameProvider(),
       child: MaterialApp(
-        title: 'Boggle',
+        title: 'Froggle',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),

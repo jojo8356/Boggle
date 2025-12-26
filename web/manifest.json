@@ -1,11 +1,11 @@
 {
-    "name": "boggle_game",
-    "short_name": "boggle_game",
+    "name": "Froggle",
+    "short_name": "Froggle",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Froggle - Jeu de Boggle multijoueur en français",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

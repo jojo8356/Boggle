@@ -6,6 +6,7 @@ import '../models/word.dart';
 import '../models/game_result.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
+import 'game_screen.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -19,6 +20,32 @@ class _ResultsScreenState extends State<ResultsScreen> {
   bool _isLoadingWords = false;
   String? _selectedWord;
   List<int>? _highlightedPath;
+  GameProvider? _gameProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gameProvider = context.read<GameProvider>();
+      _gameProvider?.addListener(_onGameStateChange);
+    });
+  }
+
+  void _onGameStateChange() {
+    if (_gameProvider?.game?.state == GameState.playing) {
+      _gameProvider?.removeListener(_onGameStateChange);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const GameScreen()),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _gameProvider?.removeListener(_onGameStateChange);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -364,6 +391,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Widget _buildReviewGrid(List<String> grid) {
+    final int gridSize = GameConstants.gridSize;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -375,7 +404,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.grid_3x3, color: Colors.brown[700]),
+              Icon(Icons.grid_4x4, color: Colors.brown[700]),
               const SizedBox(width: 8),
               Text(
                 'Grille de la manche',
@@ -420,81 +449,84 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
               ),
             ),
-          AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.brown[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.brown[100],
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                itemCount: 9,
-                itemBuilder: (context, index) {
-                  final isHighlighted = _highlightedPath?.contains(index) ?? false;
-                  final pathIndex = _highlightedPath?.indexOf(index) ?? -1;
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridSize,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                  ),
+                  itemCount: gridSize * gridSize,
+                  itemBuilder: (context, index) {
+                    final isHighlighted = _highlightedPath?.contains(index) ?? false;
+                    final pathIndex = _highlightedPath?.indexOf(index) ?? -1;
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: isHighlighted ? Colors.green[300] : Colors.amber[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isHighlighted ? Colors.green[700]! : Colors.brown[400]!,
-                        width: isHighlighted ? 3 : 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.brown.withValues(alpha: 0.2),
-                          blurRadius: 2,
-                          offset: const Offset(1, 1),
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: isHighlighted ? Colors.green[300] : Colors.amber[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isHighlighted ? Colors.green[700]! : Colors.brown[400]!,
+                          width: isHighlighted ? 3 : 2,
                         ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Text(
-                            grid[index],
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.brown[900],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.brown.withValues(alpha: 0.2),
+                            blurRadius: 2,
+                            offset: const Offset(1, 1),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Text(
+                              grid[index],
+                              style: TextStyle(
+                                fontSize: gridSize <= 4 ? 22 : 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.brown[900],
+                              ),
                             ),
                           ),
-                        ),
-                        if (isHighlighted && pathIndex >= 0)
-                          Positioned(
-                            top: 4,
-                            left: 4,
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Colors.green[700],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${pathIndex + 1}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                          if (isHighlighted && pathIndex >= 0)
+                            Positioned(
+                              top: 2,
+                              left: 2,
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Colors.green[700],
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${pathIndex + 1}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),

@@ -1,5 +1,5 @@
-name: boggle_game
-description: "Jeu de Boggle multijoueur en français"
+name: froggle_game
+description: "Froggle - Jeu de Boggle multijoueur en français"
 publish_to: 'none'
 version: 1.0.0+1
 

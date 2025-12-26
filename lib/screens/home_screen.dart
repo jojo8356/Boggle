@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
 import '../utils/constants.dart';
+import '../utils/platform_utils.dart';
 import 'lobby_screen.dart';
 import 'game_screen.dart';
 
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'BOGGLE',
+                  'FROGGLE',
                   style: TextStyle(
                     fontSize: 56,
                     fontWeight: FontWeight.bold,
@@ -148,22 +149,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.green,
                   onTap: () => _showConnectionDialog(ConnectionType.internet),
                 ),
-                const SizedBox(height: 12),
-                _ConnectionButton(
-                  icon: Icons.bluetooth,
-                  label: 'Bluetooth',
-                  description: 'Jouer à proximité',
-                  color: Colors.blue,
-                  onTap: () => _showConnectionDialog(ConnectionType.bluetooth),
-                ),
-                const SizedBox(height: 12),
-                _ConnectionButton(
-                  icon: Icons.wifi_tethering,
-                  label: 'WiFi Direct',
-                  description: 'Sans routeur WiFi',
-                  color: Colors.orange,
-                  onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
-                ),
+                // Bluetooth - uniquement sur mobile
+                if (PlatformUtils.isBluetoothSupported) ...[
+                  const SizedBox(height: 12),
+                  _ConnectionButton(
+                    icon: Icons.bluetooth,
+                    label: 'Bluetooth',
+                    description: 'Jouer à proximité',
+                    color: Colors.blue,
+                    onTap: () => _showConnectionDialog(ConnectionType.bluetooth),
+                  ),
+                ],
+                // WiFi Direct - uniquement sur mobile
+                if (PlatformUtils.isWifiDirectSupported) ...[
+                  const SizedBox(height: 12),
+                  _ConnectionButton(
+                    icon: Icons.wifi_tethering,
+                    label: 'WiFi Direct',
+                    description: 'Sans routeur WiFi',
+                    color: Colors.orange,
+                    onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
+                  ),
+                ],
                 // Bouton mode test (debug uniquement)
                 if (kDebugMode) ...[
                   const SizedBox(height: 24),

@@ -1,4 +1,4 @@
-# Boggle
+# Froggle
 
 Un jeu de Boggle multijoueur en français, développé avec Flutter.
 
@@ -48,7 +48,7 @@ Un jeu de Boggle multijoueur en français, développé avec Flutter.
 ```bash
 # Cloner le projet
 git clone <repo-url>
-cd Boggle
+cd Froggle
 
 # Installer les dépendances
 flutter pub get

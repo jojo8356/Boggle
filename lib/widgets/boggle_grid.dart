@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 class BoggleGrid extends StatefulWidget {
@@ -14,6 +15,8 @@ class BoggleGrid extends StatefulWidget {
     this.onPathSelected,
   });
 
+  int get gridSize => sqrt(letters.length).round();
+
   @override
   State<BoggleGrid> createState() => _BoggleGridState();
 }
@@ -21,6 +24,8 @@ class BoggleGrid extends StatefulWidget {
 class _BoggleGridState extends State<BoggleGrid> {
   List<int> _selectedPath = [];
   bool _isSelecting = false;
+
+  int get _gridSize => widget.gridSize;
 
   @override
   Widget build(BuildContext context) {
@@ -45,12 +50,12 @@ class _BoggleGridState extends State<BoggleGrid> {
           ),
           child: GridView.builder(
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _gridSize,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
-            itemCount: 9,
+            itemCount: _gridSize * _gridSize,
             itemBuilder: (context, index) => _buildCell(index),
           ),
         ),
@@ -107,25 +112,26 @@ class _BoggleGridState extends State<BoggleGrid> {
     if (box == null) return null;
 
     final size = box.size;
-    final cellWidth = (size.width - 16 - 16) / 3; // padding + spacing
-    final cellHeight = (size.height - 16 - 16) / 3;
+    final spacing = 8.0 * (_gridSize - 1);
+    final cellWidth = (size.width - 16 - spacing) / _gridSize;
+    final cellHeight = (size.height - 16 - spacing) / _gridSize;
 
     final x = (position.dx - 8) / (cellWidth + 8);
     final y = (position.dy - 8) / (cellHeight + 8);
 
-    if (x < 0 || x >= 3 || y < 0 || y >= 3) return null;
+    if (x < 0 || x >= _gridSize || y < 0 || y >= _gridSize) return null;
 
     final col = x.floor();
     final row = y.floor();
 
-    return row * 3 + col;
+    return row * _gridSize + col;
   }
 
   bool _areAdjacent(int pos1, int pos2) {
-    final row1 = pos1 ~/ 3;
-    final col1 = pos1 % 3;
-    final row2 = pos2 ~/ 3;
-    final col2 = pos2 % 3;
+    final row1 = pos1 ~/ _gridSize;
+    final col1 = pos1 % _gridSize;
+    final row2 = pos2 ~/ _gridSize;
+    final col2 = pos2 % _gridSize;
 
     return (row1 - row2).abs() <= 1 && (col1 - col2).abs() <= 1;
   }
