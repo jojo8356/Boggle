@@ -22,89 +22,24 @@ class DictionaryService {
 
     try {
       final String content = await rootBundle.loadString('assets/dictionnaire_fr.txt');
-      _words = content
-          .split('\n')
-          .map((word) => _normalize(word.trim().toUpperCase()))
-          .where((word) => word.length >= 3)
-          .where((word) => !_isConjugatedVerb(word))
-          .toSet();
+      final lines = content.split('\n');
 
-      // Construire le Trie pour recherche de préfixes
-      _buildTrie();
+      // Pré-allouer la capacité pour éviter les réallocations
+      _words = <String>{};
+      _root = TrieNode();
+
+      // Traiter et insérer dans le Trie en une seule passe
+      for (final line in lines) {
+        final word = _normalize(line.trim().toUpperCase());
+        if (word.length >= 3) {
+          _words.add(word);
+          _insertWord(word);
+        }
+      }
+
       _isLoaded = true;
     } catch (e) {
       throw Exception('Erreur lors du chargement du dictionnaire: $e');
-    }
-  }
-
-  /// Vérifie si un mot est probablement un verbe conjugué
-  bool _isConjugatedVerb(String word) {
-    if (word.length < 4) return false;
-
-    // Terminaisons de conjugaison françaises (normalisées sans accents)
-    final conjugationEndings = [
-      // Présent pluriel
-      'ONS', 'EZ', 'ENT',
-      // Imparfait
-      'AIS', 'AIT', 'IONS', 'IEZ', 'AIENT',
-      // Passé simple
-      'AMES', 'ATES', 'ERENT', 'IMES', 'ITES', 'IRENT', 'UMES', 'UTES', 'URENT',
-      // Futur
-      'ERAI', 'ERAS', 'ERA', 'ERONS', 'EREZ', 'ERONT',
-      'IRAI', 'IRAS', 'IRA', 'IRONS', 'IREZ', 'IRONT',
-      // Conditionnel
-      'ERAIS', 'ERAIT', 'ERIONS', 'ERIEZ', 'ERAIENT',
-      'IRAIS', 'IRAIT', 'IRIONS', 'IRIEZ', 'IRAIENT',
-      // Subjonctif présent
-      'ASSE', 'ASSES', 'ASSENT', 'ISSIONS', 'ISSIEZ', 'ISSENT',
-      // Subjonctif imparfait
-      'ASSES', 'ASSIONS', 'ASSIEZ', 'ASSENT',
-      // Participe présent
-      'ANT',
-      // Impératif pluriel (déjà couvert par ONS, EZ)
-    ];
-
-    // Mots courants à ne pas exclure (faux positifs)
-    final exceptions = {
-      'PONT', 'FONT', 'MONT', 'DONT', 'RONT', 'SONT', 'VONT', 'TANT', 'GANT',
-      'VENT', 'DENT', 'LENT', 'CENT', 'SENT', 'MENT', 'RENT', 'TENT',
-      'AVANT', 'ENFANT', 'GEANT', 'ISANT', 'ETANT', 'AYANT',
-      'PARENT', 'ARGENT', 'AGENT', 'URGENT', 'ACCENT', 'MOMENT', 'CEMENT',
-      'SERPENT', 'CONTENT', 'PRESENT', 'ABSENT', 'PATIENT', 'ORIENT',
-      'AUTANT', 'POURTANT', 'CEPENDANT', 'PENDANT', 'MAINTENANT',
-      'RESTAURANT', 'INSTANT', 'DISTANT', 'CONSTANT', 'ELEPHANT',
-      'DIAMANT', 'AIMANT', 'VOLANT', 'GALANT', 'BRILLANT', 'ECLATANT',
-      'HABITANT', 'IMPORTANT', 'INTERESSANT', 'AMUSANT', 'PASSANT',
-      'SAVANT', 'VIVANT', 'SUIVANT', 'DEVANT', 'LEVANT', 'CROISSANT',
-      'CROISANT', 'PUISSANT', 'GLISSANT', 'NAISSANT', 'AGISSANT',
-      'BLANC', 'FRANC', 'BANC',
-      'HORIZON', 'PRISON', 'RAISON', 'SAISON', 'MAISON', 'POISON', 'POISSON',
-      'LESSON', 'TRONCON', 'GARCON', 'FACON', 'LECON', 'SOUPCON', 'RANCON',
-      'CHANSON', 'ISSON',
-      'ASSEZ', 'CHEZ', 'NEZ',
-      'JAMAIS', 'MAIS', 'DESORMAIS', 'PALAIS', 'MARAIS', 'RELAIS', 'BIAIS',
-      'BALAIS', 'RABAIS', 'DELAI', 'ESSAI', 'MINERAI', 'QUAI', 'VRAI',
-      'BOIS', 'FOIS', 'MOIS', 'POIS', 'TOIT', 'DROIT', 'FROID', 'ETROIT',
-      'EXPLOIT', 'DETROIT',
-      'FUT', 'BUT', 'MUR', 'SUR', 'DUR', 'PUR', 'AZUR',
-      'DEBUT', 'SALUT', 'STATUT', 'TRIBUT', 'ATTRIBUT',
-    };
-
-    if (exceptions.contains(word)) return false;
-
-    for (final ending in conjugationEndings) {
-      if (word.endsWith(ending) && word.length > ending.length + 1) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  void _buildTrie() {
-    _root = TrieNode();
-    for (final word in _words) {
-      _insertWord(word);
     }
   }
 
