@@ -23,6 +23,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   String? _selectedWord;
   List<int>? _highlightedPath;
   GameProvider? _gameProvider;
+  String? _expandedPlayerId; // ID du joueur dont les mots sont affichés
 
   @override
   void initState() {
@@ -142,63 +143,99 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         final index = entry.key;
                         final result = entry.value;
                         final isCurrentPlayer = result.playerId == currentPlayer.id;
+                        final isExpanded = _expandedPlayerId == result.playerId;
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isCurrentPlayer ? Colors.blue[50] : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isCurrentPlayer ? Colors.blue : Colors.grey[300]!,
-                              width: isCurrentPlayer ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              _buildRankBadge(index + 1),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      result.playerName,
-                                      style: TextStyle(
-                                        fontWeight: isCurrentPlayer
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    Text(
-                                      '+${result.roundScore} cette manche',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (_expandedPlayerId == result.playerId) {
+                                _expandedPlayerId = null;
+                              } else {
+                                _expandedPlayerId = result.playerId;
+                              }
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: isCurrentPlayer ? Colors.blue[50] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isCurrentPlayer ? Colors.blue : Colors.grey[300]!,
+                                width: isCurrentPlayer ? 2 : 1,
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  '${result.totalScore} pts',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                            ),
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      _buildRankBadge(index + 1),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  result.playerName,
+                                                  style: TextStyle(
+                                                    fontWeight: isCurrentPlayer
+                                                        ? FontWeight.bold
+                                                        : FontWeight.normal,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                                                  size: 20,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ],
+                                            ),
+                                            Text(
+                                              '+${result.roundScore} cette manche • ${result.words.length} mots',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Text(
+                                          '${result.totalScore} pts',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                            ],
+                                // Mots du joueur (visible si expandé)
+                                if (isExpanded) ...[
+                                  const Divider(height: 1),
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: _buildPlayerExpandedWords(result.words, game.grid),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         );
                       }),
@@ -859,9 +896,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
       );
     }
 
-    // Séparer mots valides et doublons
-    final validWords = words.where((w) => !w.isDuplicate).toList();
-    final duplicateWords = words.where((w) => w.isDuplicate).toList();
+    // Séparer mots valides, doublons et invalides
+    final validWords = words.where((w) => !w.isDuplicate && !w.isInvalid).toList();
+    final duplicateWords = words.where((w) => w.isDuplicate && !w.isInvalid).toList();
+    final invalidWords = words.where((w) => w.isInvalid).toList();
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -935,8 +973,158 @@ class _ResultsScreenState extends State<ResultsScreen> {
               }).toList(),
             ),
           ],
+          if (invalidWords.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Mots invalides (${invalidWords.length})',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: invalidWords.map((word) {
+                final isSelected = _selectedWord == word.text;
+                return GestureDetector(
+                  onTap: () => _selectWord(word.text, grid),
+                  child: Chip(
+                    label: Text(
+                      word.text,
+                      style: const TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.red,
+                      ),
+                    ),
+                    backgroundColor: isSelected ? Colors.red[200] : Colors.red[50],
+                    side: BorderSide(
+                      color: isSelected ? Colors.red[700]! : Colors.red[300]!,
+                      width: 2,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildPlayerExpandedWords(List<Word> words, List<String> grid) {
+    if (words.isEmpty) {
+      return Text(
+        'Aucun mot trouvé',
+        style: TextStyle(
+          fontStyle: FontStyle.italic,
+          color: Colors.grey[600],
+        ),
+      );
+    }
+
+    // Séparer mots valides, doublons et invalides
+    final validWords = words.where((w) => !w.isDuplicate && !w.isInvalid).toList();
+    final duplicateWords = words.where((w) => w.isDuplicate && !w.isInvalid).toList();
+    final invalidWords = words.where((w) => w.isInvalid).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (validWords.isNotEmpty) ...[
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: validWords.map((word) {
+              final isSelected = _selectedWord == word.text;
+              return GestureDetector(
+                onTap: () => _selectWord(word.text, grid),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.green[300] : Colors.green[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.green[700]! : Colors.green[300]!,
+                    ),
+                  ),
+                  child: Text(
+                    '${word.text} +${word.points}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green[800],
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+        if (duplicateWords.isNotEmpty) ...[
+          if (validWords.isNotEmpty) const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: duplicateWords.map((word) {
+              final isSelected = _selectedWord == word.text;
+              return GestureDetector(
+                onTap: () => _selectWord(word.text, grid),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.grey[400] : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.grey[600]! : Colors.grey[400]!,
+                    ),
+                  ),
+                  child: Text(
+                    word.text,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+        if (invalidWords.isNotEmpty) ...[
+          if (validWords.isNotEmpty || duplicateWords.isNotEmpty) const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: invalidWords.map((word) {
+              final isSelected = _selectedWord == word.text;
+              return GestureDetector(
+                onTap: () => _selectWord(word.text, grid),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.red[200] : Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? Colors.red[600]! : Colors.red[300]!,
+                    ),
+                  ),
+                  child: Text(
+                    word.text,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red[700],
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
     );
   }
 

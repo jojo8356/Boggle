@@ -6,15 +6,17 @@ class Word {
   final List<int> path;
   final int points;
   bool isDuplicate;
+  bool isInvalid; // Mot non présent dans le dictionnaire (vérifié à la fin en multijoueur)
 
   Word({
     required this.text,
     required this.playerId,
     required this.path,
     this.isDuplicate = false,
+    this.isInvalid = false,
   }) : points = GameConstants.getPoints(text.length);
 
-  int get effectivePoints => isDuplicate ? 0 : points;
+  int get effectivePoints => (isDuplicate || isInvalid) ? 0 : points;
 
   Map<String, dynamic> toJson() {
     return {
@@ -22,6 +24,7 @@ class Word {
       'playerId': playerId,
       'path': path,
       'isDuplicate': isDuplicate,
+      'isInvalid': isInvalid,
     };
   }
 
@@ -31,6 +34,7 @@ class Word {
       playerId: json['playerId'],
       path: List<int>.from(json['path'] ?? []),
       isDuplicate: json['isDuplicate'] ?? false,
+      isInvalid: json['isInvalid'] ?? false,
     );
   }
 }

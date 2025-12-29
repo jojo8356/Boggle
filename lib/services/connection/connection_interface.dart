@@ -11,6 +11,7 @@ abstract class ConnectionInterface {
   Function()? onGameStart;
   Function()? onGameEnd;
   Function(String)? onNewGameVote;
+  Function(Word)? onWordReceived;
 
   Future<void> hostGame(Game game);
   Future<void> joinGame(String address, Player player);

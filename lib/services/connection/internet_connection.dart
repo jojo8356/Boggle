@@ -30,6 +30,8 @@ class InternetConnection implements ConnectionInterface {
   Function()? onGameEnd;
   @override
   Function(String)? onNewGameVote;
+  @override
+  Function(Word)? onWordReceived;
 
   @override
   Future<void> hostGame(Game game) async {
@@ -120,9 +122,14 @@ class InternetConnection implements ConnectionInterface {
           break;
 
         case 'word':
-          // Le host reçoit un mot d'un joueur et le broadcast
+          final word = Word.fromJson(data['data']);
+          // Le host reçoit un mot d'un joueur, l'ajoute au jeu et le broadcast
           if (_isHost) {
+            onWordReceived?.call(word);
             _broadcast(message, exclude: sender);
+          } else {
+            // Le client reçoit un mot d'un autre joueur
+            onWordReceived?.call(word);
           }
           break;
 

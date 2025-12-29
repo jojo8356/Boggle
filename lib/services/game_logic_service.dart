@@ -161,7 +161,9 @@ class GameLogicService {
     }
   }
 
-  ValidationResult validateWord(List<String> grid, String word, List<String> alreadyFound, {List<int>? providedPath}) {
+  /// Valide un mot
+  /// [skipDictionaryCheck] - Si true, ne vérifie pas le dictionnaire (pour le multijoueur)
+  ValidationResult validateWord(List<String> grid, String word, List<String> alreadyFound, {List<int>? providedPath, bool skipDictionaryCheck = false}) {
     word = word.toUpperCase();
 
     if (word.length < GameConstants.minWordLength) {
@@ -203,7 +205,8 @@ class GameLogicService {
       validPath = paths.first;
     }
 
-    if (!isValidWord(word)) {
+    // En mode multijoueur, on ne vérifie pas le dictionnaire maintenant
+    if (!skipDictionaryCheck && !isValidWord(word)) {
       return ValidationResult(
         isValid: false,
         error: 'Mot non reconnu dans le dictionnaire',
@@ -214,6 +217,7 @@ class GameLogicService {
       isValid: true,
       path: validPath,
       points: GameConstants.getPoints(word.length),
+      isInDictionary: skipDictionaryCheck ? null : true,
     );
   }
 }
@@ -223,11 +227,13 @@ class ValidationResult {
   final String? error;
   final List<int>? path;
   final int points;
+  final bool? isInDictionary;
 
   ValidationResult({
     required this.isValid,
     this.error,
     this.path,
     this.points = 0,
+    this.isInDictionary,
   });
 }

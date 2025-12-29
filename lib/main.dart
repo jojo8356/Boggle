@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/game_provider.dart';
 import 'services/dictionary_service.dart';
+import 'services/settings_service.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
@@ -11,16 +12,25 @@ void main() async {
   final dictionary = DictionaryService();
   await dictionary.loadDictionary();
 
-  runApp(const FroggleApp());
+  // Charger les paramètres
+  final settings = SettingsService();
+  await settings.loadSettings();
+
+  runApp(FroggleApp(settings: settings));
 }
 
 class FroggleApp extends StatelessWidget {
-  const FroggleApp({super.key});
+  final SettingsService settings;
+
+  const FroggleApp({super.key, required this.settings});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GameProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => GameProvider()),
+        ChangeNotifierProvider.value(value: settings),
+      ],
       child: MaterialApp(
         title: 'Froggle',
         debugShowCheckedModeBanner: false,

@@ -7,6 +7,8 @@ class BoggleGrid extends StatefulWidget {
   final List<int> highlightedPath;
   final bool isHighlightValid;
   final Function(List<int>)? onPathSelected;
+  final double initialZoom;
+  final bool enablePinchZoom;
 
   const BoggleGrid({
     super.key,
@@ -14,6 +16,8 @@ class BoggleGrid extends StatefulWidget {
     this.highlightedPath = const [],
     this.isHighlightValid = true,
     this.onPathSelected,
+    this.initialZoom = 1.0,
+    this.enablePinchZoom = true,
   });
 
   int get gridSize => sqrt(letters.length).round();
@@ -24,22 +28,17 @@ class BoggleGrid extends StatefulWidget {
 
 class _BoggleGridState extends State<BoggleGrid> {
   List<int> _selectedPath = [];
-  final Map<int, GlobalKey> _cellKeys = {};
+  final GlobalKey _gridKey = GlobalKey();
   bool _isDragging = false;
   Offset? _panStartPosition;
   int? _panStartCell;
-  static const double _dragThreshold = 10.0; // Distance minimale pour considérer un drag
+  static const double _dragThreshold = 8.0; // Distance minimale pour considérer un drag
+
+  // Cache pour les dimensions de la grille
+  Rect? _gridRect;
+  double? _cellSize;
 
   int get _gridSize => widget.gridSize;
-
-  @override
-  void initState() {
-    super.initState();
-    // Créer les clés pour chaque cellule
-    for (int i = 0; i < widget.letters.length; i++) {
-      _cellKeys[i] = GlobalKey();
-    }
-  }
 
   bool _areAdjacent(int pos1, int pos2) {
     final row1 = pos1 ~/ _gridSize;
@@ -50,37 +49,80 @@ class _BoggleGridState extends State<BoggleGrid> {
     return (row1 - row2).abs() <= 1 && (col1 - col2).abs() <= 1;
   }
 
-  // Vérifie si un point est dans la zone centrale (1/3) d'une cellule
-  int? _getCellAtPosition(Offset globalPosition) {
-    for (int i = 0; i < widget.letters.length; i++) {
-      final key = _cellKeys[i];
-      if (key?.currentContext != null) {
-        final RenderBox box = key!.currentContext!.findRenderObject() as RenderBox;
-        final cellPosition = box.localToGlobal(Offset.zero);
-        final cellSize = box.size;
+  // Met à jour le cache des dimensions de la grille (avec compensation du zoom)
+  void _updateGridDimensions() {
+    final context = _gridKey.currentContext;
+    if (context != null) {
+      final RenderBox box = context.findRenderObject() as RenderBox;
+      final position = box.localToGlobal(Offset.zero);
+      final zoom = widget.initialZoom;
 
-        // Zone centrale = 1/3 de la cellule au milieu
-        final centerZoneSize = cellSize.width / 3;
-        final centerOffset = (cellSize.width - centerZoneSize) / 2;
+      // Les dimensions retournées par RenderBox sont AVANT le scale
+      // Donc on doit multiplier par le zoom pour avoir les vraies dimensions à l'écran
+      final scaledWidth = box.size.width * zoom;
+      final scaledHeight = box.size.height * zoom;
 
-        final centerRect = Rect.fromLTWH(
-          cellPosition.dx + centerOffset,
-          cellPosition.dy + centerOffset,
-          centerZoneSize,
-          centerZoneSize,
-        );
+      _gridRect = Rect.fromLTWH(position.dx, position.dy, scaledWidth, scaledHeight);
 
-        if (centerRect.contains(globalPosition)) {
-          return i;
-        }
+      // Taille d'une cellule (en tenant compte du padding et spacing) - aussi zoomée
+      final padding = 6.0 * zoom;
+      final spacing = 6.0 * zoom;
+      final availableSize = scaledWidth - (padding * 2) - (spacing * (_gridSize - 1));
+      _cellSize = availableSize / _gridSize;
+    }
+  }
+
+  // Calcule l'index de la cellule à partir d'une position (méthode mathématique rapide)
+  int? _getCellAtPosition(Offset globalPosition, {bool centerOnly = true}) {
+    // S'assurer que les dimensions sont à jour
+    if (_gridRect == null || _cellSize == null) {
+      _updateGridDimensions();
+    }
+    if (_gridRect == null || _cellSize == null) return null;
+
+    final zoom = widget.initialZoom;
+    final padding = 6.0 * zoom;
+    final spacing = 6.0 * zoom;
+
+    // Position relative dans la grille
+    final relX = globalPosition.dx - _gridRect!.left - padding;
+    final relY = globalPosition.dy - _gridRect!.top - padding;
+
+    if (relX < 0 || relY < 0) return null;
+
+    // Calculer la colonne et la ligne
+    final cellWithSpacing = _cellSize! + spacing;
+    final col = (relX / cellWithSpacing).floor();
+    final row = (relY / cellWithSpacing).floor();
+
+    if (col < 0 || col >= _gridSize || row < 0 || row >= _gridSize) return null;
+
+    // Vérifier qu'on est bien dans une cellule et pas dans l'espacement
+    final cellStartX = col * cellWithSpacing;
+    final cellStartY = row * cellWithSpacing;
+    final posInCellX = relX - cellStartX;
+    final posInCellY = relY - cellStartY;
+
+    if (posInCellX > _cellSize! || posInCellY > _cellSize!) return null;
+
+    if (centerOnly) {
+      // Zone centrale = 1/3 de la cellule (margin = 1/3 de chaque côté)
+      final margin = _cellSize! / 3.0;
+      if (posInCellX < margin || posInCellX > _cellSize! - margin ||
+          posInCellY < margin || posInCellY > _cellSize! - margin) {
+        return null;
       }
     }
-    return null;
+
+    return row * _gridSize + col;
   }
 
   void _onPanStart(DragStartDetails details) {
+    // Mettre à jour les dimensions au début de chaque interaction
+    _updateGridDimensions();
+
     _panStartPosition = details.globalPosition;
-    _panStartCell = _getCellAtPositionAnywhere(details.globalPosition);
+    _panStartCell = _getCellAtPosition(details.globalPosition, centerOnly: false);
     _isDragging = false;
 
     // Si on a déjà un path et qu'on démarre sur une case du path ou adjacente
@@ -160,30 +202,6 @@ class _BoggleGridState extends State<BoggleGrid> {
     _panStartCell = null;
   }
 
-  // Trouve la cellule à une position (toute la cellule, pas juste le centre)
-  int? _getCellAtPositionAnywhere(Offset globalPosition) {
-    for (int i = 0; i < widget.letters.length; i++) {
-      final key = _cellKeys[i];
-      if (key?.currentContext != null) {
-        final RenderBox box = key!.currentContext!.findRenderObject() as RenderBox;
-        final cellPosition = box.localToGlobal(Offset.zero);
-        final cellSize = box.size;
-
-        final cellRect = Rect.fromLTWH(
-          cellPosition.dx,
-          cellPosition.dy,
-          cellSize.width,
-          cellSize.height,
-        );
-
-        if (cellRect.contains(globalPosition)) {
-          return i;
-        }
-      }
-    }
-    return null;
-  }
-
   @override
   void didUpdateWidget(BoggleGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -237,44 +255,60 @@ class _BoggleGridState extends State<BoggleGrid> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculer la taille de la grille (carrée, max possible)
+        // Calculer la taille de la grille en tenant compte du zoom
+        // La grille de base doit être plus petite pour que zoomée elle rentre dans l'espace
         final availableHeight = constraints.maxHeight;
         final availableWidth = constraints.maxWidth;
-        final gridSize = min(availableHeight, availableWidth);
+        final maxSize = min(availableHeight, availableWidth);
+
+        // Taille de base de la grille (avant zoom)
+        final baseGridSize = maxSize / widget.initialZoom;
+        // Taille finale après zoom (= maxSize)
+        final finalGridSize = baseGridSize * widget.initialZoom;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Grille carrée avec gestion du drag et tap
-            GestureDetector(
-              onPanStart: _onPanStart,
-              onPanUpdate: _onPanUpdate,
-              onPanEnd: _onPanEnd,
-              child: SizedBox(
-                width: gridSize,
-                height: gridSize,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.brown[100],
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.brown.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+            SizedBox(
+              width: finalGridSize,
+              height: finalGridSize,
+              child: Center(
+                child: GestureDetector(
+                  onPanStart: _onPanStart,
+                  onPanUpdate: _onPanUpdate,
+                  onPanEnd: _onPanEnd,
+                  child: SizedBox(
+                    width: baseGridSize,
+                    height: baseGridSize,
+                    child: Transform.scale(
+                      scale: widget.initialZoom,
+                      child: Container(
+                        key: _gridKey,
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.brown[100],
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.brown.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: _gridSize,
+                            crossAxisSpacing: 6,
+                            mainAxisSpacing: 6,
+                          ),
+                          itemCount: _gridSize * _gridSize,
+                          itemBuilder: (context, index) => _buildCell(index),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _gridSize,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6,
                     ),
-                    itemCount: _gridSize * _gridSize,
-                    itemBuilder: (context, index) => _buildCell(index),
                   ),
                 ),
               ),
@@ -374,7 +408,6 @@ class _BoggleGridState extends State<BoggleGrid> {
         final fontSize = cellSize * 0.5;
 
         return Container(
-            key: _cellKeys[index],
             decoration: BoxDecoration(
               color: cellColor,
               borderRadius: BorderRadius.circular(8),

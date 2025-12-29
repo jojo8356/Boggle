@@ -20,6 +20,8 @@ class WifiDirectConnectionStub implements ConnectionInterface {
   Function()? onGameEnd;
   @override
   Function(String)? onNewGameVote;
+  @override
+  Function(Word)? onWordReceived;
 
   @override
   Future<void> hostGame(Game game) async {

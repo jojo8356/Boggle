@@ -69,6 +69,7 @@ class GameProvider extends ChangeNotifier {
     _connection!.onGameStart = _handleGameStart;
     _connection!.onGameEnd = _handleGameEnd;
     _connection!.onNewGameVote = _handleNewGameVote;
+    _connection!.onWordReceived = _handleWordReceived;
 
     if (isHost) {
       _game = Game(id: const Uuid().v4());
@@ -121,10 +122,26 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  void _handleWordReceived(Word word) {
+    if (_game == null) return;
+
+    // Ajouter le mot à la liste des mots du jeu s'il n'existe pas déjà
+    final alreadyExists = _game!.allWords.any(
+      (w) => w.text == word.text && w.playerId == word.playerId
+    );
+
+    if (!alreadyExists) {
+      _game!.allWords.add(word);
+      notifyListeners();
+    }
+  }
+
   void startGame() {
     if (_game == null || !isHost) return;
 
     _game!.startGame();
+    // Envoyer d'abord l'état complet du jeu (avec la grille) puis le signal de démarrage
+    _connection?.broadcastGameState(_game!);
     _connection?.broadcastGameStart();
     _startTimer();
     notifyListeners();
@@ -151,9 +168,26 @@ class GameProvider extends ChangeNotifier {
 
   void endGame() {
     _gameTimer?.cancel();
+
+    // En mode multijoueur, valider les mots contre le dictionnaire maintenant
+    if (!isTestMode && _game != null) {
+      _validateWordsAgainstDictionary();
+    }
+
     _game?.endGame();
     _connection?.broadcastGameEnd();
     notifyListeners();
+  }
+
+  /// Valide tous les mots contre le dictionnaire (appelé à la fin en multijoueur)
+  void _validateWordsAgainstDictionary() {
+    if (_game == null) return;
+
+    for (var word in _game!.allWords) {
+      if (!_gameLogic.isValidWord(word.text)) {
+        word.isInvalid = true;
+      }
+    }
   }
 
   ValidationResult submitWord(String word, {List<int>? path}) {
@@ -161,11 +195,16 @@ class GameProvider extends ChangeNotifier {
       return ValidationResult(isValid: false, error: 'Partie non initialisée');
     }
 
+    // En mode multijoueur, on ne vérifie pas le dictionnaire immédiatement
+    // La validation se fera à la fin de la partie
+    final isMultiplayer = !isTestMode;
+
     final result = _gameLogic.validateWord(
       _game!.grid,
       word,
       _currentPlayer!.foundWords,
       providedPath: path,
+      skipDictionaryCheck: isMultiplayer,
     );
 
     if (result.isValid) {
@@ -204,7 +243,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Mode test - Démarre une partie solo sans connexion (debug uniquement)
-  void startTestGame(String playerName) {
+  void startTestGame(String playerName, {int? gameDuration}) {
     final playerId = const Uuid().v4();
 
     _currentPlayer = Player(
@@ -213,7 +252,10 @@ class GameProvider extends ChangeNotifier {
       isHost: true,
     );
 
-    _game = Game(id: const Uuid().v4());
+    _game = Game(
+      id: const Uuid().v4(),
+      remainingSeconds: gameDuration ?? GameConstants.gameDurationSeconds,
+    );
     _game!.addPlayer(_currentPlayer!);
     _game!.startGame();
     _startTimer();
@@ -226,6 +268,12 @@ class GameProvider extends ChangeNotifier {
   /// Arrête la partie immédiatement (mode test uniquement)
   void stopTestGame() {
     if (!isTestMode) return;
+    endGame();
+  }
+
+  /// Termine la partie immédiatement (mode debug uniquement, fonctionne aussi en multijoueur)
+  void forceEndGame() {
+    if (!kDebugMode || _game == null) return;
     endGame();
   }
 

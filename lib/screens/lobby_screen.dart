@@ -27,11 +27,36 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool _isConnecting = true;
   String? _connectionInfo;
   String? _errorMessage;
+  GameProvider? _gameProvider;
 
   @override
   void initState() {
     super.initState();
     _initConnection();
+    // Écouter les changements d'état du jeu pour naviguer quand l'hôte démarre
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gameProvider = context.read<GameProvider>();
+      _gameProvider!.addListener(_onGameStateChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    // Retirer le listener proprement en utilisant la référence sauvegardée
+    _gameProvider?.removeListener(_onGameStateChanged);
+    super.dispose();
+  }
+
+  void _onGameStateChanged() {
+    final game = _gameProvider?.game;
+
+    // Si le jeu passe en état "playing" et qu'on n'est pas l'hôte, naviguer vers GameScreen
+    if (game != null && game.state == GameState.playing && !widget.isHost && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const GameScreen()),
+      );
+    }
   }
 
   Future<void> _initConnection() async {
@@ -45,15 +70,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
         hostAddress: widget.hostAddress,
       );
 
-      setState(() {
-        _isConnecting = false;
-        _connectionInfo = gameProvider.connectionInfo;
-      });
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _connectionInfo = gameProvider.connectionInfo;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isConnecting = false;
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _isConnecting = false;
+          _errorMessage = e.toString();
+        });
+      }
     }
   }
 

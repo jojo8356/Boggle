@@ -16,7 +16,11 @@ class PlatformUtils {
   }
 
   /// Retourne true si le Bluetooth est supporté
-  static bool get isBluetoothSupported => isMobile;
+  /// flutter_blue_plus supporte Android, iOS, macOS et Linux
+  static bool get isBluetoothSupported {
+    if (kIsWeb) return false;
+    return Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isLinux;
+  }
 
   /// Retourne true si le WiFi Direct est supporté
   static bool get isWifiDirectSupported => isMobile;

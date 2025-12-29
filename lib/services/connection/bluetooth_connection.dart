@@ -31,6 +31,8 @@ class BluetoothConnection implements ConnectionInterface {
   Function()? onGameEnd;
   @override
   Function(String)? onNewGameVote;
+  @override
+  Function(Word)? onWordReceived;
 
   @override
   Future<void> hostGame(Game game) async {
@@ -120,6 +122,10 @@ class BluetoothConnection implements ConnectionInterface {
           break;
         case 'game_end':
           onGameEnd?.call();
+          break;
+        case 'word':
+          final word = Word.fromJson(json['data']);
+          onWordReceived?.call(word);
           break;
         case 'new_game_vote':
           onNewGameVote?.call(json['data'] as String);

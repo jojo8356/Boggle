@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
+import '../services/settings_service.dart';
 import '../widgets/boggle_grid.dart';
 import '../widgets/timer_widget.dart';
 import '../widgets/word_list.dart';
@@ -127,14 +128,14 @@ class _GameScreenState extends State<GameScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Bouton arrêter (mode test uniquement)
-                  if (kDebugMode && gameProvider.isTestMode)
+                  // Bouton terminer (mode debug uniquement - fonctionne en solo et multi)
+                  if (kDebugMode)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: ElevatedButton.icon(
-                        onPressed: () => gameProvider.stopTestGame(),
+                        onPressed: () => gameProvider.forceEndGame(),
                         icon: const Icon(Icons.stop),
-                        label: const Text('Arrêter la partie'),
+                        label: const Text('Terminer la partie'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
@@ -155,17 +156,22 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 16),
                   // Grille avec taille contrainte + espace pour boutons
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 350, maxHeight: 450),
-                    child: BoggleGrid(
-                      letters: game.grid,
-                      highlightedPath: _highlightedPath,
-                      isHighlightValid: _isHighlightValid,
-                      onPathSelected: (path) {
-                        final word = path.map((i) => game.grid[i]).join();
-                        _handleWordSubmit(word, path: path);
-                      },
-                    ),
+                  Consumer<SettingsService>(
+                    builder: (context, settings, child) {
+                      return ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 350, maxHeight: 450),
+                        child: BoggleGrid(
+                          letters: game.grid,
+                          highlightedPath: _highlightedPath,
+                          isHighlightValid: _isHighlightValid,
+                          initialZoom: settings.gridZoom,
+                          onPathSelected: (path) {
+                            final word = path.map((i) => game.grid[i]).join();
+                            _handleWordSubmit(word, path: path);
+                          },
+                        ),
+                      );
+                    },
                   ),
                   // Feedback message (espace toujours réservé)
                   Padding(
@@ -223,6 +229,11 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                 ),
+                // Mots des autres joueurs (multijoueur uniquement)
+                if (!gameProvider.isTestMode && game.players.length > 1) ...[
+                  const Divider(),
+                  _buildOtherPlayersWords(game, gameProvider),
+                ],
               ],
             ),
           ),
@@ -234,17 +245,20 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildNarrowLayout(game, GameProvider gameProvider, currentPlayer, List<Word> playerWords) {
     return Column(
       children: [
-        // Bouton arrêter (mode test uniquement)
-        if (kDebugMode && gameProvider.isTestMode)
-          ElevatedButton.icon(
-            onPressed: () => gameProvider.stopTestGame(),
-            icon: const Icon(Icons.stop, size: 16),
-            label: const Text('Stop', style: TextStyle(fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: const Size(0, 30),
+        // Bouton terminer (mode debug uniquement - fonctionne en solo et multi)
+        if (kDebugMode)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: ElevatedButton.icon(
+              onPressed: () => gameProvider.forceEndGame(),
+              icon: const Icon(Icons.stop, size: 16),
+              label: const Text('Terminer', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: const Size(0, 30),
+              ),
             ),
           ),
         // Timer et Score sur la même ligne
@@ -272,13 +286,18 @@ class _GameScreenState extends State<GameScreen> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: BoggleGrid(
-              letters: game.grid,
-              highlightedPath: _highlightedPath,
-              isHighlightValid: _isHighlightValid,
-              onPathSelected: (path) {
-                final word = path.map((i) => game.grid[i]).join();
-                _handleWordSubmit(word, path: path);
+            child: Consumer<SettingsService>(
+              builder: (context, settings, child) {
+                return BoggleGrid(
+                  letters: game.grid,
+                  highlightedPath: _highlightedPath,
+                  isHighlightValid: _isHighlightValid,
+                  initialZoom: settings.gridZoom,
+                  onPathSelected: (path) {
+                    final word = path.map((i) => game.grid[i]).join();
+                    _handleWordSubmit(word, path: path);
+                  },
+                );
               },
             ),
           ),
@@ -328,6 +347,61 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildOtherPlayersWords(game, GameProvider gameProvider) {
+    final currentPlayerId = gameProvider.currentPlayerId;
+    final otherPlayers = game.players.where((p) => p.id != currentPlayerId).toList();
+
+    if (otherPlayers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Autres joueurs',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...otherPlayers.map((player) {
+          final otherWords = game.allWords
+              .where((w) => w.playerId == player.id)
+              .map((w) => w.text)
+              .toList();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Text(
+                  '${player.name}: ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    otherWords.isEmpty ? 'Aucun mot' : '${otherWords.length} mots',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: otherWords.isEmpty ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }

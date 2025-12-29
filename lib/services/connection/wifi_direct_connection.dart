@@ -29,6 +29,8 @@ class WifiDirectConnection implements ConnectionInterface {
   Function()? onGameEnd;
   @override
   Function(String)? onNewGameVote;
+  @override
+  Function(Word)? onWordReceived;
 
   @override
   Future<void> hostGame(Game game) async {
@@ -110,8 +112,12 @@ class WifiDirectConnection implements ConnectionInterface {
           onGameEnd?.call();
           break;
         case 'word':
+          final word = Word.fromJson(json['data']);
           if (_isHost) {
+            onWordReceived?.call(word);
             _broadcast(data);
+          } else {
+            onWordReceived?.call(word);
           }
           break;
         case 'new_game_vote':

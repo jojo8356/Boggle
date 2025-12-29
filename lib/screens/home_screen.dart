@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
+import '../services/settings_service.dart';
 import '../utils/constants.dart';
 import '../utils/platform_utils.dart';
 import 'lobby_screen.dart';
 import 'game_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -67,7 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
-    gameProvider.startTestGame(playerName);
+    final settings = Provider.of<SettingsService>(context, listen: false);
+    gameProvider.startTestGame(playerName, gameDuration: settings.gameDuration);
 
     Navigator.push(
       context,
@@ -79,6 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsService>();
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -89,98 +94,117 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'FROGGLE',
-                  style: TextStyle(
-                    fontSize: 56,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        offset: Offset(2, 2),
-                        blurRadius: 4,
-                        color: Colors.black26,
+          child: Stack(
+            children: [
+              // Bouton paramètres en haut à droite
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                ),
+              ),
+              // Contenu principal
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'FROGGLE',
+                      style: TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            offset: Offset(2, 2),
+                            blurRadius: 4,
+                            color: Colors.black26,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '16 lettres • ${settings.formatDuration(settings.gameDuration)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        hintText: 'Votre nom',
+                        prefixIcon: const Icon(Icons.person),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    const Text(
+                      'Choisir le mode de connexion',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ConnectionButton(
+                      icon: Icons.wifi,
+                      label: 'Internet',
+                      description: 'Jouer en ligne',
+                      color: Colors.green,
+                      onTap: () => _showConnectionDialog(ConnectionType.internet),
+                    ),
+                    // Bluetooth - uniquement sur mobile
+                    if (PlatformUtils.isBluetoothSupported) ...[
+                      const SizedBox(height: 12),
+                      _ConnectionButton(
+                        icon: Icons.bluetooth,
+                        label: 'Bluetooth',
+                        description: 'Jouer à proximité',
+                        color: Colors.blue,
+                        onTap: () => _showConnectionDialog(ConnectionType.bluetooth),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '9 lettres • 3 minutes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Votre nom',
-                    prefixIcon: const Icon(Icons.person),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    // WiFi Direct - uniquement sur mobile
+                    if (PlatformUtils.isWifiDirectSupported) ...[
+                      const SizedBox(height: 12),
+                      _ConnectionButton(
+                        icon: Icons.wifi_tethering,
+                        label: 'WiFi Direct',
+                        description: 'Sans routeur WiFi',
+                        color: Colors.orange,
+                        onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
+                      ),
+                    ],
+                    // Mode solo
+                    const SizedBox(height: 12),
+                    _ConnectionButton(
+                      icon: Icons.person,
+                      label: 'Solo',
+                      description: 'Jouer seul',
+                      color: Colors.purple,
+                      onTap: _startTestGame,
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                const Text(
-                  'Choisir le mode de connexion',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _ConnectionButton(
-                  icon: Icons.wifi,
-                  label: 'Internet',
-                  description: 'Jouer en ligne',
-                  color: Colors.green,
-                  onTap: () => _showConnectionDialog(ConnectionType.internet),
-                ),
-                // Bluetooth - uniquement sur mobile
-                if (PlatformUtils.isBluetoothSupported) ...[
-                  const SizedBox(height: 12),
-                  _ConnectionButton(
-                    icon: Icons.bluetooth,
-                    label: 'Bluetooth',
-                    description: 'Jouer à proximité',
-                    color: Colors.blue,
-                    onTap: () => _showConnectionDialog(ConnectionType.bluetooth),
-                  ),
-                ],
-                // WiFi Direct - uniquement sur mobile
-                if (PlatformUtils.isWifiDirectSupported) ...[
-                  const SizedBox(height: 12),
-                  _ConnectionButton(
-                    icon: Icons.wifi_tethering,
-                    label: 'WiFi Direct',
-                    description: 'Sans routeur WiFi',
-                    color: Colors.orange,
-                    onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
-                  ),
-                ],
-                // Mode solo
-                const SizedBox(height: 12),
-                _ConnectionButton(
-                  icon: Icons.person,
-                  label: 'Solo',
-                  description: 'Jouer seul',
-                  color: Colors.purple,
-                  onTap: _startTestGame,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
