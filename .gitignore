@@ -27,11 +27,14 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
+pubspec.lock
 
 # Symbolication related
 app.*.symbols
@@ -43,9 +46,49 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle/
+/android/app/build/
+/android/build/
+*.apk
+*.aab
+
+# iOS build
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/ephemeral/
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS build
+/macos/Flutter/ephemeral/
+/macos/Pods/
+
+# Linux build
+/linux/flutter/ephemeral/
+
+# Windows build
+/windows/flutter/ephemeral/
 
 # Packaging
 *.deb
 *.rpm
 *.AppImage
 packaging/deb/*/usr/
+
+# Python (scripts de traitement du dictionnaire)
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+
+# Fichiers de données volumineux (générés, pas besoin de versionner)
+Lexique383.tsv
+mots_lexique.txt
+lemmes_lexique.txt
+definitions.txt
+
+# Scripts de traitement (optionnel, décommenter si tu veux les garder)
+# *.py
