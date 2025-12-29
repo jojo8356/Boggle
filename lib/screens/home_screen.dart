@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
 import '../services/settings_service.dart';
 import '../utils/constants.dart';
-import '../utils/platform_utils.dart';
 import 'lobby_screen.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
@@ -170,29 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.green,
                       onTap: () => _showConnectionDialog(ConnectionType.internet),
                     ),
-                    // Bluetooth - uniquement sur mobile
-                    if (PlatformUtils.isBluetoothSupported) ...[
-                      const SizedBox(height: 12),
-                      _ConnectionButton(
-                        icon: Icons.bluetooth,
-                        label: 'Bluetooth',
-                        description: 'Jouer à proximité',
-                        color: Colors.blue,
-                        onTap: () => _showConnectionDialog(ConnectionType.bluetooth),
-                      ),
-                    ],
-                    // WiFi Direct - uniquement sur mobile
-                    if (PlatformUtils.isWifiDirectSupported) ...[
-                      const SizedBox(height: 12),
-                      _ConnectionButton(
-                        icon: Icons.wifi_tethering,
-                        label: 'WiFi Direct',
-                        description: 'Sans routeur WiFi',
-                        color: Colors.orange,
-                        onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
-                      ),
-                    ],
-                    // Mode solo
                     const SizedBox(height: 12),
                     _ConnectionButton(
                       icon: Icons.person,
