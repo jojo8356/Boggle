@@ -5,7 +5,7 @@ Un jeu de Boggle multijoueur en français, développé avec Flutter.
 ## Fonctionnalités
 
 ### Gameplay
-- Grille 3x3 (9 lettres) avec distribution pondérée pour le français
+- Grille 4x4 (16 lettres) avec distribution pondérée pour le français
 - Timer de 3 minutes par manche
 - Validation instantanée des mots avec feedback visuel
 - Dictionnaire français complet (~336 000 mots)

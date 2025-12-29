@@ -15,88 +15,42 @@ class ScoreDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.purple[400]!, Colors.purple[600]!],
         ),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.purple.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _ScoreItem(
-            label: 'Mots',
-            value: wordCount.toString(),
-            icon: Icons.abc,
+          Text(
+            '$wordCount',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
-          Container(
-            height: 40,
-            width: 1,
-            color: Colors.white30,
+          const Text(
+            ' mots | ',
+            style: TextStyle(fontSize: 12, color: Colors.white70),
           ),
-          _ScoreItem(
-            label: 'Manche',
-            value: '+$currentScore',
-            icon: Icons.star,
+          Text(
+            '+$currentScore',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
-          Container(
-            height: 40,
-            width: 1,
-            color: Colors.white30,
-          ),
-          _ScoreItem(
-            label: 'Total',
-            value: totalScore.toString(),
-            icon: Icons.emoji_events,
+          const Text(
+            ' pts',
+            style: TextStyle(fontSize: 12, color: Colors.white70),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ScoreItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _ScoreItem({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white70, size: 20),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-          ),
-        ),
-      ],
     );
   }
 }

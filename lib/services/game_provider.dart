@@ -156,7 +156,7 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  ValidationResult submitWord(String word) {
+  ValidationResult submitWord(String word, {List<int>? path}) {
     if (_game == null || _currentPlayer == null) {
       return ValidationResult(isValid: false, error: 'Partie non initialisée');
     }
@@ -165,6 +165,7 @@ class GameProvider extends ChangeNotifier {
       _game!.grid,
       word,
       _currentPlayer!.foundWords,
+      providedPath: path,
     );
 
     if (result.isValid) {

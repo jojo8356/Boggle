@@ -161,7 +161,7 @@ class GameLogicService {
     }
   }
 
-  ValidationResult validateWord(List<String> grid, String word, List<String> alreadyFound) {
+  ValidationResult validateWord(List<String> grid, String word, List<String> alreadyFound, {List<int>? providedPath}) {
     word = word.toUpperCase();
 
     if (word.length < GameConstants.minWordLength) {
@@ -178,12 +178,29 @@ class GameLogicService {
       );
     }
 
-    final paths = findWordPath(grid, word);
-    if (paths == null || paths.isEmpty) {
-      return ValidationResult(
-        isValid: false,
-        error: 'Impossible de former ce mot sur la grille',
-      );
+    // Si un chemin est fourni, vérifier qu'il est valide
+    List<int>? validPath;
+    if (providedPath != null && providedPath.isNotEmpty) {
+      final gridSize = _getGridSize(grid);
+      // Vérifier que le chemin est valide et correspond au mot
+      if (isValidPath(providedPath, gridSize)) {
+        final wordFromPath = getWordFromPath(grid, providedPath);
+        if (wordFromPath.toUpperCase() == word) {
+          validPath = providedPath;
+        }
+      }
+    }
+
+    // Si pas de chemin fourni ou invalide, en chercher un
+    if (validPath == null) {
+      final paths = findWordPath(grid, word);
+      if (paths == null || paths.isEmpty) {
+        return ValidationResult(
+          isValid: false,
+          error: 'Impossible de former ce mot sur la grille',
+        );
+      }
+      validPath = paths.first;
     }
 
     if (!isValidWord(word)) {
@@ -195,7 +212,7 @@ class GameLogicService {
 
     return ValidationResult(
       isValid: true,
-      path: paths.first,
+      path: validPath,
       points: GameConstants.getPoints(word.length),
     );
   }

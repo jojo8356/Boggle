@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/game_provider.dart';
 import '../services/game_logic_service.dart';
 import '../models/word.dart';
@@ -89,154 +91,165 @@ class _ResultsScreenState extends State<ResultsScreen> {
             (r) => r.playerId == currentPlayer.id,
           );
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Titre manche
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.purple[400]!, Colors.purple[600]!],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Manche ${game.roundNumber} terminée!',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+          return Column(
+            children: [
+              // Grille fixe en haut
+              Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                padding: const EdgeInsets.all(12),
+                child: _buildReviewGrid(game.grid),
+              ),
 
-                const SizedBox(height: 24),
-
-                // Grille de révision
-                _buildReviewGrid(game.grid),
-
-                const SizedBox(height: 24),
-
-                // Classement
-                const Text(
-                  'Classement',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...ranking.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final result = entry.value;
-                  final isCurrentPlayer = result.playerId == currentPlayer.id;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isCurrentPlayer ? Colors.blue[50] : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isCurrentPlayer ? Colors.blue : Colors.grey[300]!,
-                        width: isCurrentPlayer ? 2 : 1,
+              // Contenu scrollable
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Titre manche
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple[400]!, Colors.purple[600]!],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Manche ${game.roundNumber} terminée!',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildRankBadge(index + 1),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+
+                      const SizedBox(height: 24),
+
+                      // Classement
+                      const Text(
+                        'Classement',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...ranking.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final result = entry.value;
+                        final isCurrentPlayer = result.playerId == currentPlayer.id;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isCurrentPlayer ? Colors.blue[50] : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isCurrentPlayer ? Colors.blue : Colors.grey[300]!,
+                              width: isCurrentPlayer ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
                             children: [
-                              Text(
-                                result.playerName,
-                                style: TextStyle(
-                                  fontWeight: isCurrentPlayer
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  fontSize: 16,
+                              _buildRankBadge(index + 1),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      result.playerName,
+                                      style: TextStyle(
+                                        fontWeight: isCurrentPlayer
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Text(
+                                      '+${result.roundScore} cette manche',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                '+${result.roundScore} cette manche',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  '${result.totalScore} pts',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.purple,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            '${result.totalScore} pts',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                        );
+                      }),
 
-                const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                // Vos mots
-                const Text(
-                  'Vos mots',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                      // Vos mots
+                      const Text(
+                        'Vos mots',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildWordsList(currentPlayerResult.words, game.grid),
+
+                      const SizedBox(height: 24),
+
+                      // Section tous les mots possibles (cachée par défaut)
+                      _buildAllPossibleWordsSection(game.grid),
+
+                      const SizedBox(height: 24),
+
+                      // Vote nouvelle partie
+                      _buildNewGameSection(context, gameProvider),
+
+                      const SizedBox(height: 16),
+
+                      // Bouton quitter
+                      OutlinedButton(
+                        onPressed: () {
+                          gameProvider.dispose();
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => const HomeScreen()),
+                            (route) => false,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Quitter la partie'),
+                      ),
+
+                      const SizedBox(height: 16),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                _buildWordsList(currentPlayerResult.words, game.grid),
-
-                const SizedBox(height: 24),
-
-                // Section tous les mots possibles (cachée par défaut)
-                _buildAllPossibleWordsSection(game.grid),
-
-                const SizedBox(height: 24),
-
-                // Vote nouvelle partie
-                _buildNewGameSection(context, gameProvider),
-
-                const SizedBox(height: 16),
-
-                // Bouton quitter
-                OutlinedButton(
-                  onPressed: () {
-                    gameProvider.dispose();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomeScreen()),
-                      (route) => false,
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Quitter la partie'),
-                ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
@@ -325,7 +338,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       wordsByLength.putIfAbsent(length, () => []).add(word);
     }
 
-    final sortedLengths = wordsByLength.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sortedLengths = wordsByLength.keys.toList()..sort((a, b) => a.compareTo(b));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,44 +352,44 @@ class _ResultsScreenState extends State<ResultsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.orange[200],
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '$length lettres (+$points pts) - ${words.length} mots',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 16,
                     color: Colors.orange[900],
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Wrap(
-                spacing: 6,
-                runSpacing: 4,
+                spacing: 10,
+                runSpacing: 8,
                 children: words.map((word) {
                   final isSelected = _selectedWord == word;
                   return GestureDetector(
                     onTap: () => _selectWord(word, grid),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.orange[300] : Colors.white,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected ? Colors.orange[700]! : Colors.orange[200]!,
-                          width: isSelected ? 2 : 1,
+                          width: 2, // Largeur fixe pour éviter les sauts de layout
                         ),
                       ),
                       child: Text(
                         word,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 18,
                           color: isSelected ? Colors.orange[900] : Colors.grey[800],
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -415,40 +428,51 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
               ),
               const Spacer(),
-              if (_selectedWord != null)
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _selectedWord = null;
-                      _highlightedPath = null;
-                    });
-                  },
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('Effacer'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.brown[600],
+              // Bouton toujours présent mais invisible quand pas de sélection
+              Opacity(
+                opacity: _selectedWord != null ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: _selectedWord == null,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedWord = null;
+                        _highlightedPath = null;
+                      });
+                    },
+                    icon: const Icon(Icons.clear, size: 16),
+                    label: const Text('Effacer'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.brown[600],
+                    ),
                   ),
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          if (_selectedWord != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.green[100],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.green[300]!),
-              ),
-              child: Text(
-                'Mot sélectionné: $_selectedWord',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green[800],
-                ),
-              ),
-            ),
+          // Espace réservé pour le mot sélectionné (toujours présent pour éviter les sauts)
+          SizedBox(
+            height: 36,
+            child: _selectedWord != null
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green[300]!),
+                  ),
+                  child: Text(
+                    'Mot sélectionné: $_selectedWord',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[800],
+                    ),
+                  ),
+                )
+              : null,
+          ),
+          const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
             child: AspectRatio(
@@ -545,6 +569,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   void _selectWord(String word, List<String> grid) {
+    // Si le mot est déjà sélectionné, afficher la définition
+    if (_selectedWord == word) {
+      _showDefinitionDialog(word);
+      return;
+    }
+
+    // Sinon, juste afficher le chemin
     final gameLogic = GameLogicService();
     final paths = gameLogic.findWordPath(grid, word);
 
@@ -552,6 +583,219 @@ class _ResultsScreenState extends State<ResultsScreen> {
       _selectedWord = word;
       _highlightedPath = paths?.first;
     });
+  }
+
+  Future<List<String>> _fetchDefinitions(String word) async {
+    final lowercaseWord = word.toLowerCase();
+
+    // Essayer d'abord le CNRTL (TLFi)
+    try {
+      final cnrtlUrl = Uri.parse('https://www.cnrtl.fr/definition/$lowercaseWord');
+      final response = await http.get(cnrtlUrl).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final definitions = _parseCnrtlDefinitions(response.body);
+        if (definitions.isNotEmpty) {
+          return definitions;
+        }
+      }
+    } catch (e) {
+      // Erreur CNRTL, on continue
+    }
+
+    // Fallback: Larousse
+    try {
+      final larousseUrl = Uri.parse('https://www.larousse.fr/dictionnaires/francais/$lowercaseWord');
+      final response = await http.get(larousseUrl).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final definitions = _parseLarousseDefinitions(response.body);
+        if (definitions.isNotEmpty) {
+          return definitions;
+        }
+      }
+    } catch (e) {
+      // Erreur Larousse
+    }
+
+    return [];
+  }
+
+  List<String> _parseCnrtlDefinitions(String html) {
+    final definitions = <String>[];
+
+    // Chercher les définitions dans les balises tlf_cdefinition
+    final defRegex = RegExp(r'<span[^>]*class="[^"]*tlf_cdefinition[^"]*"[^>]*>(.*?)</span>', dotAll: true);
+    final matches = defRegex.allMatches(html);
+
+    for (final match in matches) {
+      if (definitions.length >= 3) break;
+
+      var text = match.group(1) ?? '';
+      // Nettoyer le HTML
+      text = text
+        .replaceAll(RegExp(r'<[^>]+>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
+
+      if (text.isNotEmpty && text.length > 10) {
+        definitions.add(text);
+      }
+    }
+
+    // Si pas de définitions trouvées, essayer une autre méthode
+    if (definitions.isEmpty) {
+      final altRegex = RegExp(r'<div[^>]*class="[^"]*tlf_parah[^"]*"[^>]*>(.*?)</div>', dotAll: true);
+      final altMatches = altRegex.allMatches(html);
+
+      for (final match in altMatches) {
+        if (definitions.length >= 2) break;
+
+        var text = match.group(1) ?? '';
+        text = text
+          .replaceAll(RegExp(r'<[^>]+>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+        if (text.isNotEmpty && text.length > 20 && !text.contains('Prononc.')) {
+          definitions.add(text);
+        }
+      }
+    }
+
+    return definitions;
+  }
+
+  List<String> _parseLarousseDefinitions(String html) {
+    final definitions = <String>[];
+
+    // Chercher les définitions Larousse
+    final defRegex = RegExp(r'<li[^>]*class="[^"]*DivisionDefinition[^"]*"[^>]*>(.*?)</li>', dotAll: true);
+    final matches = defRegex.allMatches(html);
+
+    for (final match in matches) {
+      if (definitions.length >= 3) break;
+
+      var text = match.group(1) ?? '';
+      text = text
+        .replaceAll(RegExp(r'<[^>]+>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('&nbsp;', ' ')
+        .trim();
+
+      if (text.isNotEmpty && text.length > 10) {
+        definitions.add(text);
+      }
+    }
+
+    return definitions;
+  }
+
+  void _showDefinitionDialog(String word) {
+    final lowercaseWord = word.toLowerCase();
+    final cnrtlUrl = 'https://www.cnrtl.fr/definition/$lowercaseWord';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => FutureBuilder<List<String>>(
+        future: _fetchDefinitions(word),
+        builder: (context, snapshot) {
+          final definitions = snapshot.data ?? [];
+          final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+          return AlertDialog(
+            title: Text(
+              word,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 300),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (definitions.isEmpty)
+                      Text(
+                        'Définition non disponible',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    else
+                      ...definitions.asMap().entries.map((entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${entry.key + 1}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange[800],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                entry.value,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse(cnrtlUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('CNRTL'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildRankBadge(int rank) {
@@ -649,7 +893,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     backgroundColor: isSelected ? Colors.green[300] : Colors.green[100],
                     side: BorderSide(
                       color: isSelected ? Colors.green[700]! : Colors.green[300]!,
-                      width: isSelected ? 2 : 1,
+                      width: 2, // Largeur fixe pour éviter les sauts de layout
                     ),
                   ),
                 );
@@ -684,7 +928,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     backgroundColor: isSelected ? Colors.grey[400] : Colors.grey[200],
                     side: BorderSide(
                       color: isSelected ? Colors.grey[700]! : Colors.grey[400]!,
-                      width: isSelected ? 2 : 1,
+                      width: 2, // Largeur fixe pour éviter les sauts de layout
                     ),
                   ),
                 );

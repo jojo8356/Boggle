@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
@@ -171,33 +170,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => _showConnectionDialog(ConnectionType.wifiDirect),
                   ),
                 ],
-                // Bouton mode test (debug uniquement)
-                if (kDebugMode) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'MODE DÉVELOPPEUR',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _ConnectionButton(
-                    icon: Icons.bug_report,
-                    label: 'Mode Test',
-                    description: 'Jouer seul (debug)',
-                    color: Colors.red,
-                    onTap: _startTestGame,
-                  ),
-                ],
+                // Mode solo
+                const SizedBox(height: 12),
+                _ConnectionButton(
+                  icon: Icons.person,
+                  label: 'Solo',
+                  description: 'Jouer seul',
+                  color: Colors.purple,
+                  onTap: _startTestGame,
+                ),
               ],
             ),
           ),

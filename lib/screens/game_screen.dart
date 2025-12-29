@@ -18,10 +18,11 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final GlobalKey<_WordInputWithFeedbackState> _wordInputKey = GlobalKey();
   List<int> _highlightedPath = [];
   bool _isHighlightValid = true;
   GameProvider? _gameProvider;
+  String? _feedbackMessage;
+  bool _isError = false;
 
   @override
   void initState() {
@@ -46,35 +47,32 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _handleWordSubmit(String word) {
+  void _handleWordSubmit(String word, {List<int>? path}) {
     final gameProvider = context.read<GameProvider>();
-    final result = gameProvider.submitWord(word);
+    final result = gameProvider.submitWord(word, path: path);
 
     if (result.isValid) {
       setState(() {
         _highlightedPath = result.path ?? [];
         _isHighlightValid = true;
+        _feedbackMessage = '+${result.points} points!';
+        _isError = false;
       });
-      _wordInputKey.currentState?.showFeedback(
-        '+${result.points} points!',
-        false,
-      );
     } else {
       setState(() {
         _highlightedPath = [];
         _isHighlightValid = false;
+        _feedbackMessage = result.error ?? 'Mot invalide';
+        _isError = true;
       });
-      _wordInputKey.currentState?.showFeedback(
-        result.error ?? 'Mot invalide',
-        true,
-      );
     }
 
-    // Effacer le highlight après un moment
+    // Effacer le highlight et le feedback après un moment
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         setState(() {
           _highlightedPath = [];
+          _feedbackMessage = null;
         });
       }
     });
@@ -156,32 +154,38 @@ class _GameScreenState extends State<GameScreen> {
                     wordCount: playerWords.length,
                   ),
                   const SizedBox(height: 16),
-                  // Grille avec taille contrainte
+                  // Grille avec taille contrainte + espace pour boutons
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 350, maxHeight: 350),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: BoggleGrid(
-                        letters: game.grid,
-                        highlightedPath: _highlightedPath,
-                        isHighlightValid: _isHighlightValid,
-                        onPathSelected: (path) {
-                          final word = path.map((i) => game.grid[i]).join();
-                          _handleWordSubmit(word);
-                        },
-                      ),
+                    constraints: const BoxConstraints(maxWidth: 350, maxHeight: 450),
+                    child: BoggleGrid(
+                      letters: game.grid,
+                      highlightedPath: _highlightedPath,
+                      isHighlightValid: _isHighlightValid,
+                      onPathSelected: (path) {
+                        final word = path.map((i) => game.grid[i]).join();
+                        _handleWordSubmit(word, path: path);
+                      },
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Input
+                  // Feedback message (espace toujours réservé)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 350),
-                      child: _WordInputWithFeedback(
-                        key: _wordInputKey,
-                        onWordSubmitted: _handleWordSubmit,
-                        enabled: game.state == GameState.playing,
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Opacity(
+                      opacity: _feedbackMessage != null ? 1.0 : 0.0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _isError ? Colors.red[100] : Colors.green[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _feedbackMessage ?? ' ',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _isError ? Colors.red[700] : Colors.green[700],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -232,100 +236,98 @@ class _GameScreenState extends State<GameScreen> {
       children: [
         // Bouton arrêter (mode test uniquement)
         if (kDebugMode && gameProvider.isTestMode)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: ElevatedButton.icon(
-              onPressed: () => gameProvider.stopTestGame(),
-              icon: const Icon(Icons.stop),
-              label: const Text('Arrêter la partie'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+          ElevatedButton.icon(
+            onPressed: () => gameProvider.stopTestGame(),
+            icon: const Icon(Icons.stop, size: 16),
+            label: const Text('Stop', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: const Size(0, 30),
+            ),
+          ),
+        // Timer et Score sur la même ligne
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: TimerWidget(
+                  remainingSeconds: game.remainingSeconds,
+                  isRunning: game.state == GameState.playing,
+                ),
+              ),
+              const SizedBox(width: 8),
+              ScoreDisplay(
+                currentScore: gameProvider.getCurrentScore(),
+                totalScore: currentPlayer?.score ?? 0,
+                wordCount: playerWords.length,
+              ),
+            ],
+          ),
+        ),
+
+        // Grille Boggle - prend le maximum de place possible
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: BoggleGrid(
+              letters: game.grid,
+              highlightedPath: _highlightedPath,
+              isHighlightValid: _isHighlightValid,
+              onPathSelected: (path) {
+                final word = path.map((i) => game.grid[i]).join();
+                _handleWordSubmit(word, path: path);
+              },
+            ),
+          ),
+        ),
+
+        // Feedback message (espace toujours réservé)
+        Opacity(
+          opacity: _feedbackMessage != null ? 1.0 : 0.0,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isError ? Colors.red[100] : Colors.green[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _feedbackMessage ?? ' ',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: _isError ? Colors.red[700] : Colors.green[700],
               ),
             ),
           ),
-        // Timer en haut
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: TimerWidget(
-            remainingSeconds: game.remainingSeconds,
-            isRunning: game.state == GameState.playing,
-          ),
         ),
 
-        // Score display
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ScoreDisplay(
-            currentScore: gameProvider.getCurrentScore(),
-            totalScore: currentPlayer?.score ?? 0,
-            wordCount: playerWords.length,
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Grille Boggle
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: BoggleGrid(
-            letters: game.grid,
-            highlightedPath: _highlightedPath,
-            isHighlightValid: _isHighlightValid,
-            onPathSelected: (path) {
-              // Construire le mot à partir du path
-              final word = path.map((i) => game.grid[i]).join();
-              _handleWordSubmit(word);
-            },
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Input mot
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _WordInputWithFeedback(
-            key: _wordInputKey,
-            onWordSubmitted: _handleWordSubmit,
-            enabled: game.state == GameState.playing,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Liste des mots trouvés
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Vos mots (${playerWords.length})',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+        // Liste des mots très compacte
+        if (playerWords.isNotEmpty)
+          Container(
+            height: 28,
+            margin: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: playerWords.map((word) => Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: WordList(
-                      words: playerWords,
-                      showDuplicates: false,
-                    ),
+                  child: Text(
+                    word.text,
+                    style: TextStyle(fontSize: 10, color: Colors.green[800], fontWeight: FontWeight.w500),
                   ),
-                ),
-              ],
+                )).toList(),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -337,119 +339,3 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-class _WordInputWithFeedback extends StatefulWidget {
-  final Function(String) onWordSubmitted;
-  final bool enabled;
-
-  const _WordInputWithFeedback({
-    super.key,
-    required this.onWordSubmitted,
-    this.enabled = true,
-  });
-
-  @override
-  State<_WordInputWithFeedback> createState() => _WordInputWithFeedbackState();
-}
-
-class _WordInputWithFeedbackState extends State<_WordInputWithFeedback> {
-  final TextEditingController _controller = TextEditingController();
-  String? _feedbackMessage;
-  bool _isError = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void showFeedback(String message, bool isError) {
-    setState(() {
-      _feedbackMessage = message;
-      _isError = isError;
-    });
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _feedbackMessage = null;
-        });
-      }
-    });
-  }
-
-  void _submitWord() {
-    final word = _controller.text.trim().toUpperCase();
-    if (word.isNotEmpty) {
-      widget.onWordSubmitted(word);
-      _controller.clear();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                enabled: widget.enabled,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText: 'Entrez un mot...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                onSubmitted: (_) => _submitWord(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: widget.enabled ? _submitWord : null,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Icon(Icons.send),
-            ),
-          ],
-        ),
-        if (_feedbackMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _isError ? Colors.red[100] : Colors.green[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _isError ? Icons.error : Icons.check_circle,
-                    color: _isError ? Colors.red : Colors.green,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _feedbackMessage!,
-                    style: TextStyle(
-                      color: _isError ? Colors.red[700] : Colors.green[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
