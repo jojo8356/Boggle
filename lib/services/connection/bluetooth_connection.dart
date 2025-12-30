@@ -1,20 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'dart:typed_data';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as bt;
 import '../../models/game.dart';
 import '../../models/player.dart';
 import '../../models/word.dart';
 import 'connection_interface.dart';
 
 class BluetoothConnection implements ConnectionInterface {
-  static const String serviceUuid = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-  static const String characteristicUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-
-  BluetoothDevice? _connectedDevice;
-  BluetoothCharacteristic? _characteristic;
-  StreamSubscription? _scanSubscription;
-  StreamSubscription? _characteristicSubscription;
+  bt.BluetoothConnection? _connection;
+  StreamSubscription? _dataSubscription;
   String? _deviceName;
+  String _buffer = '';
 
   @override
   String? get connectionInfo => _deviceName;
@@ -34,76 +31,71 @@ class BluetoothConnection implements ConnectionInterface {
   @override
   Function(Word)? onWordReceived;
 
+  /// Obtenir la liste des appareils appairés
+  static Future<List<bt.BluetoothDevice>> getPairedDevices() async {
+    return await bt.FlutterBluetoothSerial.instance.getBondedDevices();
+  }
+
+  /// Vérifier si le Bluetooth est activé
+  static Future<bool> isBluetoothEnabled() async {
+    return await bt.FlutterBluetoothSerial.instance.isEnabled ?? false;
+  }
+
+  /// Demander d'activer le Bluetooth
+  static Future<bool?> requestEnable() async {
+    return await bt.FlutterBluetoothSerial.instance.requestEnable();
+  }
+
   @override
   Future<void> hostGame(Game game) async {
     _deviceName = 'Froggle Host';
-    // En mode host, on attend les connexions
-    // Note: Flutter Blue Plus ne supporte pas le mode peripheral/advertiser
-    // On utilise un mode simplifié où le host scanne aussi
-    await _startScanning();
+    // En mode host avec Bluetooth Serial, on attend une connexion entrante
+    // Le téléphone doit être en mode "discoverable"
+    // Note: flutter_bluetooth_serial ne supporte pas le mode serveur directement
+    // On utilise donc le même mécanisme que joinGame - l'hôte se connecte aussi
   }
 
   @override
   Future<void> joinGame(String address, Player player) async {
-    await _startScanning();
-  }
-
-  Future<void> _startScanning() async {
-    // Vérifier si Bluetooth est activé
-    if (await FlutterBluePlus.isSupported == false) {
-      throw Exception('Bluetooth non supporté sur cet appareil');
+    if (address.isEmpty) {
+      throw Exception('Adresse Bluetooth requise');
     }
-
-    // Attendre que Bluetooth soit activé
-    await FlutterBluePlus.adapterState
-        .where((state) => state == BluetoothAdapterState.on)
-        .first
-        .timeout(const Duration(seconds: 10));
-
-    // Scanner les appareils
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
-
-    _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
-      for (ScanResult result in results) {
-        // Chercher un appareil avec notre service
-        if (result.advertisementData.serviceUuids.contains(Guid(serviceUuid))) {
-          _connectToDevice(result.device);
-          FlutterBluePlus.stopScan();
-          break;
-        }
-      }
-    });
+    await connectToDevice(address);
   }
 
-  Future<void> _connectToDevice(BluetoothDevice device) async {
+  /// Se connecter à un appareil par son adresse MAC
+  Future<void> connectToDevice(String address) async {
     try {
-      await device.connect();
-      _connectedDevice = device;
-      _deviceName = device.platformName;
+      _connection = await bt.BluetoothConnection.toAddress(address);
+      _deviceName = 'Connecté à $address';
 
-      // Découvrir les services
-      List<BluetoothService> services = await device.discoverServices();
-
-      for (BluetoothService service in services) {
-        if (service.uuid == Guid(serviceUuid)) {
-          for (BluetoothCharacteristic characteristic in service.characteristics) {
-            if (characteristic.uuid == Guid(characteristicUuid)) {
-              _characteristic = characteristic;
-              await characteristic.setNotifyValue(true);
-              _characteristicSubscription = characteristic.onValueReceived.listen(_handleData);
-              break;
-            }
-          }
-        }
-      }
+      _dataSubscription = _connection!.input?.listen(_handleData);
     } catch (e) {
       throw Exception('Erreur de connexion Bluetooth: $e');
     }
   }
 
-  void _handleData(List<int> data) {
+  void _handleData(Uint8List data) {
     try {
-      final message = utf8.decode(data);
+      _buffer += utf8.decode(data);
+
+      // Traiter les messages complets (séparés par \n)
+      while (_buffer.contains('\n')) {
+        final index = _buffer.indexOf('\n');
+        final message = _buffer.substring(0, index);
+        _buffer = _buffer.substring(index + 1);
+
+        if (message.isNotEmpty) {
+          _processMessage(message);
+        }
+      }
+    } catch (_) {
+      // Ignorer les erreurs de décodage
+    }
+  }
+
+  void _processMessage(String message) {
+    try {
       final json = jsonDecode(message);
       final type = json['type'] as String;
 
@@ -137,10 +129,15 @@ class BluetoothConnection implements ConnectionInterface {
   }
 
   Future<void> _sendMessage(Map<String, dynamic> message) async {
-    if (_characteristic == null) return;
+    if (_connection == null || !_connection!.isConnected) return;
 
-    final data = utf8.encode(jsonEncode(message));
-    await _characteristic!.write(data);
+    try {
+      final data = '${jsonEncode(message)}\n';
+      _connection!.output.add(Uint8List.fromList(utf8.encode(data)));
+      await _connection!.output.allSent;
+    } catch (_) {
+      // Ignorer les erreurs d'envoi
+    }
   }
 
   @override
@@ -179,10 +176,9 @@ class BluetoothConnection implements ConnectionInterface {
 
   @override
   void disconnect() {
-    _scanSubscription?.cancel();
-    _characteristicSubscription?.cancel();
-    _connectedDevice?.disconnect();
-    _connectedDevice = null;
-    _characteristic = null;
+    _dataSubscription?.cancel();
+    _connection?.dispose();
+    _connection = null;
+    _buffer = '';
   }
 }

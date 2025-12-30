@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/game_provider.dart';
 import '../services/game_logic_service.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../models/word.dart';
 import '../models/game_result.dart';
+import '../models/match_record.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 import 'game_screen.dart';
@@ -31,7 +34,48 @@ class _ResultsScreenState extends State<ResultsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _gameProvider = context.read<GameProvider>();
       _gameProvider?.addListener(_onGameStateChange);
+      _saveMatchIfLoggedIn();
     });
+  }
+
+  Future<void> _saveMatchIfLoggedIn() async {
+    final authService = context.read<AuthService>();
+    if (!authService.isLoggedIn) return;
+
+    final gameProvider = context.read<GameProvider>();
+    final game = gameProvider.game;
+    final currentPlayer = gameProvider.currentPlayer;
+
+    if (game == null || currentPlayer == null) return;
+
+    // Calculer le résultat
+    final playerResults = game.players.map((player) {
+      final words = game.allWords.where((w) => w.playerId == player.id).toList();
+      final roundScore = words.fold<int>(0, (sum, w) => sum + w.effectivePoints);
+      return (playerId: player.id, score: player.score, roundScore: roundScore, words: words);
+    }).toList();
+
+    playerResults.sort((a, b) => b.score.compareTo(a.score));
+    final rank = playerResults.indexWhere((r) => r.playerId == currentPlayer.id) + 1;
+    final isWin = rank == 1;
+
+    final currentPlayerResult = playerResults.firstWhere((r) => r.playerId == currentPlayer.id);
+    final validWords = currentPlayerResult.words.where((w) => !w.isDuplicate && !w.isInvalid).length;
+
+    final match = MatchRecord(
+      userId: authService.currentUser!.id!,
+      playedAt: DateTime.now(),
+      score: currentPlayer.score,
+      wordsFound: currentPlayerResult.words.length,
+      validWords: validWords,
+      rank: rank,
+      totalPlayers: game.players.length,
+      isWin: isWin,
+      isSolo: game.players.length == 1,
+      gameDuration: GameConstants.gameDurationSeconds,
+    );
+
+    await DatabaseService.instance.insertMatch(match);
   }
 
   void _onGameStateChange() {

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as bt;
 import '../services/game_provider.dart';
 import '../services/settings_service.dart';
+import '../services/auth_service.dart';
+import '../services/connection/bluetooth_connection.dart';
 import '../utils/constants.dart';
 import 'lobby_screen.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
+import 'auth_screen.dart';
+import 'stats_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,6 +84,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showAccountMenu(BuildContext context, AuthService authService) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.account_circle, size: 40),
+              title: Text(
+                authService.currentUser?.username ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              subtitle: const Text('Connecté'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Statistiques'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const StatsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Se déconnecter', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                await authService.logout();
+                if (context.mounted) Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBluetoothDialog() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez entrer votre nom')),
+      );
+      return;
+    }
+
+    // Vérifier si Bluetooth est activé
+    final isEnabled = await BluetoothConnection.isBluetoothEnabled();
+    if (!isEnabled) {
+      final enabled = await BluetoothConnection.requestEnable();
+      if (enabled != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bluetooth doit être activé')),
+          );
+        }
+        return;
+      }
+    }
+
+    // Récupérer les appareils appairés
+    final devices = await BluetoothConnection.getPairedDevices();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => _BluetoothDeviceDialog(
+        devices: devices,
+        playerName: _nameController.text.trim(),
+        onDeviceSelected: (device) {
+          Navigator.pop(context);
+          _navigateToLobby(ConnectionType.bluetooth, false, device.address);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsService>();
@@ -95,18 +182,58 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // Bouton paramètres en haut à droite
+              // Boutons en haut à droite
               Positioned(
                 top: 8,
                 right: 8,
-                child: IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                child: Row(
+                  children: [
+                    // Bouton compte/stats
+                    Consumer<AuthService>(
+                      builder: (context, authService, _) {
+                        if (authService.isLoggedIn) {
+                          return Row(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const StatsScreen()),
+                                  );
+                                },
+                                icon: const Icon(Icons.bar_chart, color: Colors.white, size: 28),
+                                tooltip: 'Statistiques',
+                              ),
+                              IconButton(
+                                onPressed: () => _showAccountMenu(context, authService),
+                                icon: const Icon(Icons.account_circle, color: Colors.white, size: 28),
+                                tooltip: authService.currentUser?.username ?? 'Compte',
+                              ),
+                            ],
+                          );
+                        }
+                        return IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const AuthScreen()),
+                            );
+                          },
+                          icon: const Icon(Icons.login, color: Colors.white, size: 28),
+                          tooltip: 'Se connecter',
+                        );
+                      },
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                    ),
+                  ],
                 ),
               ),
               // Contenu principal
@@ -168,6 +295,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       description: 'Jouer en ligne',
                       color: Colors.green,
                       onTap: () => _showConnectionDialog(ConnectionType.internet),
+                    ),
+                    const SizedBox(height: 12),
+                    _ConnectionButton(
+                      icon: Icons.bluetooth,
+                      label: 'Bluetooth',
+                      description: 'Jouer à proximité',
+                      color: Colors.blue,
+                      onTap: () => _showBluetoothDialog(),
                     ),
                     const SizedBox(height: 12),
                     _ConnectionButton(
@@ -291,23 +426,23 @@ class _ConnectionDialogState extends State<_ConnectionDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RadioGroup<bool>(
-            groupValue: _isHost,
-            onChanged: (value) => setState(() => _isHost = value ?? true),
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('Créer une partie'),
-                  leading: Radio<bool>(value: true),
-                  onTap: () => setState(() => _isHost = true),
-                ),
-                ListTile(
-                  title: const Text('Rejoindre une partie'),
-                  leading: Radio<bool>(value: false),
-                  onTap: () => setState(() => _isHost = false),
-                ),
-              ],
+          ListTile(
+            title: const Text('Créer une partie'),
+            leading: Radio<bool>(
+              value: true,
+              groupValue: _isHost,
+              onChanged: (value) => setState(() => _isHost = value ?? true),
             ),
+            onTap: () => setState(() => _isHost = true),
+          ),
+          ListTile(
+            title: const Text('Rejoindre une partie'),
+            leading: Radio<bool>(
+              value: false,
+              groupValue: _isHost,
+              onChanged: (value) => setState(() => _isHost = value ?? true),
+            ),
+            onTap: () => setState(() => _isHost = false),
           ),
           if (!_isHost && widget.connectionType == ConnectionType.internet)
             Padding(
@@ -337,6 +472,55 @@ class _ConnectionDialogState extends State<_ConnectionDialog> {
             );
           },
           child: Text(_isHost ? 'Créer' : 'Rejoindre'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BluetoothDeviceDialog extends StatelessWidget {
+  final List<bt.BluetoothDevice> devices;
+  final String playerName;
+  final Function(bt.BluetoothDevice) onDeviceSelected;
+
+  const _BluetoothDeviceDialog({
+    required this.devices,
+    required this.playerName,
+    required this.onDeviceSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Appareils Bluetooth'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: devices.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Aucun appareil appairé trouvé.\n\nAppairez d\'abord votre appareil dans les paramètres Bluetooth.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: devices.length,
+                itemBuilder: (context, index) {
+                  final device = devices[index];
+                  return ListTile(
+                    leading: const Icon(Icons.bluetooth),
+                    title: Text(device.name ?? 'Appareil inconnu'),
+                    subtitle: Text(device.address),
+                    onTap: () => onDeviceSelected(device),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
         ),
       ],
     );

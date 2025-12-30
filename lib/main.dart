@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/game_provider.dart';
 import 'services/dictionary_service.dart';
 import 'services/settings_service.dart';
+import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
@@ -16,13 +17,18 @@ void main() async {
   final settings = SettingsService();
   await settings.loadSettings();
 
-  runApp(FroggleApp(settings: settings));
+  // Charger l'authentification
+  final authService = AuthService();
+  await authService.init();
+
+  runApp(FroggleApp(settings: settings, authService: authService));
 }
 
 class FroggleApp extends StatelessWidget {
   final SettingsService settings;
+  final AuthService authService;
 
-  const FroggleApp({super.key, required this.settings});
+  const FroggleApp({super.key, required this.settings, required this.authService});
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +36,7 @@ class FroggleApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => GameProvider()),
         ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: authService),
       ],
       child: MaterialApp(
         title: 'Froggle',
