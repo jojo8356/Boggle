@@ -2,6 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+import '../core/widgets/circular_action_button.dart';
+
 class BoggleGrid extends StatefulWidget {
   final List<String> letters;
   final List<int> highlightedPath;
@@ -32,7 +35,8 @@ class _BoggleGridState extends State<BoggleGrid> {
   bool _isDragging = false;
   Offset? _panStartPosition;
   int? _panStartCell;
-  static const double _dragThreshold = 8.0; // Distance minimale pour considérer un drag
+  static const double _dragThreshold =
+      8.0; // Distance minimale pour considérer un drag
 
   // Cache pour les dimensions de la grille
   Rect? _gridRect;
@@ -62,12 +66,18 @@ class _BoggleGridState extends State<BoggleGrid> {
       final scaledWidth = box.size.width * zoom;
       final scaledHeight = box.size.height * zoom;
 
-      _gridRect = Rect.fromLTWH(position.dx, position.dy, scaledWidth, scaledHeight);
+      _gridRect = Rect.fromLTWH(
+        position.dx,
+        position.dy,
+        scaledWidth,
+        scaledHeight,
+      );
 
       // Taille d'une cellule (en tenant compte du padding et spacing) - aussi zoomée
       final padding = 6.0 * zoom;
       final spacing = 6.0 * zoom;
-      final availableSize = scaledWidth - (padding * 2) - (spacing * (_gridSize - 1));
+      final availableSize =
+          scaledWidth - (padding * 2) - (spacing * (_gridSize - 1));
       _cellSize = availableSize / _gridSize;
     }
   }
@@ -106,10 +116,12 @@ class _BoggleGridState extends State<BoggleGrid> {
     if (posInCellX > _cellSize! || posInCellY > _cellSize!) return null;
 
     if (centerOnly) {
-      // Zone centrale = 1/3 de la cellule (margin = 1/3 de chaque côté)
-      final margin = _cellSize! / 3.0;
-      if (posInCellX < margin || posInCellX > _cellSize! - margin ||
-          posInCellY < margin || posInCellY > _cellSize! - margin) {
+      // Zone centrale = moitié de la cellule (marge = 1/4 de chaque côté)
+      final margin = _cellSize! / 4.0;
+      if (posInCellX < margin ||
+          posInCellX > _cellSize! - margin ||
+          posInCellY < margin ||
+          posInCellY > _cellSize! - margin) {
         return null;
       }
     }
@@ -122,7 +134,10 @@ class _BoggleGridState extends State<BoggleGrid> {
     _updateGridDimensions();
 
     _panStartPosition = details.globalPosition;
-    _panStartCell = _getCellAtPosition(details.globalPosition, centerOnly: false);
+    _panStartCell = _getCellAtPosition(
+      details.globalPosition,
+      centerOnly: false,
+    );
     _isDragging = false;
 
     // Si on a déjà un path et qu'on démarre sur une case du path ou adjacente
@@ -178,7 +193,8 @@ class _BoggleGridState extends State<BoggleGrid> {
           }
 
           // Ajouter si adjacent à la dernière cellule
-          if (_selectedPath.isNotEmpty && _areAdjacent(_selectedPath.last, cellIndex)) {
+          if (_selectedPath.isNotEmpty &&
+              _areAdjacent(_selectedPath.last, cellIndex)) {
             _selectedPath.add(cellIndex);
           }
         });
@@ -198,6 +214,12 @@ class _BoggleGridState extends State<BoggleGrid> {
     }
     // On garde le path pour valider avec le bouton vert
 
+    _panStartPosition = null;
+    _panStartCell = null;
+  }
+
+  void _onPanCancel() {
+    _isDragging = false;
     _panStartPosition = null;
     _panStartCell = null;
   }
@@ -259,53 +281,53 @@ class _BoggleGridState extends State<BoggleGrid> {
         // La grille de base doit être plus petite pour que zoomée elle rentre dans l'espace
         final availableHeight = constraints.maxHeight;
         final availableWidth = constraints.maxWidth;
-        final maxSize = min(availableHeight, availableWidth);
+
+        // Réserver de l'espace pour les boutons en bas
+        const buttonAreaHeight = 20 + 80;
+        final maxGridHeight = availableHeight - buttonAreaHeight;
+        final maxSize = min(maxGridHeight, availableWidth) * 0.85;
 
         // Taille de base de la grille (avant zoom)
-        final baseGridSize = maxSize / widget.initialZoom;
+        final baseGridSize = maxSize;
         // Taille finale après zoom (= maxSize)
         final finalGridSize = baseGridSize * widget.initialZoom;
 
         return Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: [
             // Grille carrée avec gestion du drag et tap
-            SizedBox(
-              width: finalGridSize,
-              height: finalGridSize,
+            Expanded(
               child: Center(
-                child: GestureDetector(
-                  onPanStart: _onPanStart,
-                  onPanUpdate: _onPanUpdate,
-                  onPanEnd: _onPanEnd,
-                  child: SizedBox(
-                    width: baseGridSize,
-                    height: baseGridSize,
-                    child: Transform.scale(
-                      scale: widget.initialZoom,
-                      child: Container(
-                        key: _gridKey,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.brown[100],
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.brown.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
+                child: SizedBox(
+                  width: finalGridSize,
+                  height: finalGridSize,
+                  child: Center(
+                    child: GestureDetector(
+                      onPanStart: _onPanStart,
+                      onPanUpdate: _onPanUpdate,
+                      onPanEnd: _onPanEnd,
+                      onPanCancel: _onPanCancel,
+                      child: SizedBox(
+                        width: baseGridSize,
+                        height: baseGridSize,
+                        child: Transform.scale(
+                          scale: widget.initialZoom,
+                          child: Container(
+                            key: _gridKey,
+                            padding: const EdgeInsets.all(6),
+                            decoration: AppDecorations.gridContainer(),
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: _gridSize,
+                                    crossAxisSpacing: 6,
+                                    mainAxisSpacing: 6,
+                                  ),
+                              itemCount: _gridSize * _gridSize,
+                              itemBuilder: (context, index) => _buildCell(index),
                             ),
-                          ],
-                        ),
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _gridSize,
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
                           ),
-                          itemCount: _gridSize * _gridSize,
-                          itemBuilder: (context, index) => _buildCell(index),
                         ),
                       ),
                     ),
@@ -313,8 +335,8 @@ class _BoggleGridState extends State<BoggleGrid> {
                 ),
               ),
             ),
-            // Boutons valider/annuler en bas de la grille (espace toujours réservé)
-            const SizedBox(height: 20),
+            // Boutons valider/annuler en bas de la grille
+            const SizedBox(height: 10),
             Opacity(
               opacity: _selectedPath.isNotEmpty ? 1.0 : 0.0,
               child: IgnorePointer(
@@ -323,51 +345,17 @@ class _BoggleGridState extends State<BoggleGrid> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Bouton valider (check vert)
-                    GestureDetector(
+                    CircularActionButton(
                       onTap: _submitWord,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.green[500],
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 48,
-                        ),
-                      ),
+                      icon: Icons.check,
+                      color: AppColors.green500,
                     ),
                     const SizedBox(width: 40),
                     // Bouton annuler (croix rouge)
-                    GestureDetector(
+                    CircularActionButton(
                       onTap: _clearSelection,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red[500],
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 48,
-                        ),
-                      ),
+                      icon: Icons.close,
+                      color: AppColors.red500,
                     ),
                   ],
                 ),
@@ -392,14 +380,14 @@ class _BoggleGridState extends State<BoggleGrid> {
     Color cellColor;
     if (isInHighlight) {
       cellColor = widget.isHighlightValid
-          ? Colors.green[300]!
-          : Colors.red[300]!;
+          ? AppColors.green300
+          : AppColors.red300;
     } else if (isLastInPath) {
-      cellColor = Colors.blue[400]!;
+      cellColor = AppColors.blue400;
     } else if (isInPath) {
-      cellColor = Colors.blue[200]!;
+      cellColor = AppColors.blue200;
     } else {
-      cellColor = Colors.amber[100]!;
+      cellColor = AppColors.amber100;
     }
 
     return LayoutBuilder(
@@ -408,62 +396,40 @@ class _BoggleGridState extends State<BoggleGrid> {
         final fontSize = cellSize * 0.5;
 
         return Container(
-            decoration: BoxDecoration(
-              color: cellColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected ? Colors.brown[700]! : Colors.brown[400]!,
-                width: isSelected ? 3 : 2,
+          decoration: AppDecorations.gridCell(
+            cellColor: cellColor,
+            isSelected: isSelected,
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: Text(
+                    widget.letters[index],
+                    style: AppTextStyles.gridLetter(fontSize: fontSize),
+                  ),
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.brown.withValues(alpha: 0.2),
-                  blurRadius: 2,
-                  offset: const Offset(1, 1),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Center(
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: Text(
-                      widget.letters[index],
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.brown[900],
+              // Numéro de position dans le chemin
+              if (isInPath && pathIndex >= 0)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: AppDecorations.pathIndexBadge(),
+                    child: Center(
+                      child: Text(
+                        '${pathIndex + 1}',
+                        style: AppTextStyles.pathIndex,
                       ),
                     ),
                   ),
                 ),
-                // Numéro de position dans le chemin
-                if (isInPath && pathIndex >= 0)
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: Colors.blue[700],
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${pathIndex + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            ],
+          ),
         );
       },
     );

@@ -1,3 +1,4 @@
+import '../services/score_service.dart';
 import '../utils/constants.dart';
 import '../utils/letter_distribution.dart';
 import 'player.dart';
@@ -72,12 +73,10 @@ class Game {
   }
 
   void _calculateScores() {
+    final scoreService = ScoreService();
+    final scores = scoreService.calculateAllScores(allWords);
     for (var player in players) {
-      int score = 0;
-      for (var word in allWords.where((w) => w.playerId == player.id)) {
-        score += word.effectivePoints;
-      }
-      player.score += score;
+      player.score += scores[player.id] ?? 0;
     }
   }
 
@@ -87,6 +86,17 @@ class Game {
 
   void resetForNewGame() {
     grid = LetterDistribution.generateGrid(GameConstants.gridSize);
+    state = GameState.waiting;
+    remainingSeconds = GameConstants.gameDurationSeconds;
+    allWords = [];
+    roundNumber++;
+    for (var player in players) {
+      player.resetForNewGame();
+    }
+  }
+
+  void resetWithSameGrid() {
+    // Rejouer avec la même grille (ne change pas grid)
     state = GameState.waiting;
     remainingSeconds = GameConstants.gameDurationSeconds;
     allWords = [];

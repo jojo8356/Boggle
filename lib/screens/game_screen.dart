@@ -9,6 +9,8 @@ import '../utils/constants.dart';
 import '../widgets/boggle_grid.dart';
 import '../widgets/score_display.dart';
 import '../widgets/timer_widget.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/word_chip.dart';
 import 'results_screen.dart';
 import 'game_end_transition.dart';
 
@@ -71,7 +73,7 @@ class _GameScreenState extends State<GameScreen> {
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.help_outline, color: Colors.purple),
+            Icon(Icons.help_outline, color: AppColors.purple),
             SizedBox(width: 8),
             Text('Comment jouer'),
           ],
@@ -144,9 +146,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth > 600;
-
     return Scaffold(
       floatingActionButton: _buildFloatingButtons(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
@@ -168,37 +167,16 @@ class _GameScreenState extends State<GameScreen> {
                     .toList() ??
                 [];
 
-            if (isWideScreen) {
-              // Layout horizontal pour desktop/tablette
-              return _buildWideLayout(
-                game,
-                gameProvider,
-                currentPlayer,
-                playerWords,
-              );
-            } else {
-              // Layout vertical pour mobile
-              return _buildNarrowLayout(
-                game,
-                gameProvider,
-                currentPlayer,
-                playerWords,
-              );
-            }
+            return _buildNarrowLayout(
+              game,
+              gameProvider,
+              currentPlayer,
+              playerWords,
+            );
           },
         ),
       ),
     );
-  }
-
-  Widget _buildWideLayout(
-    game,
-    GameProvider gameProvider,
-    currentPlayer,
-    List<Word> playerWords,
-  ) {
-    // Utiliser le même layout que la version mobile
-    return _buildNarrowLayout(game, gameProvider, currentPlayer, playerWords);
   }
 
   Widget _buildNarrowLayout(
@@ -215,13 +193,13 @@ class _GameScreenState extends State<GameScreen> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ElevatedButton.icon(
               onPressed: () => gameProvider.forceEndGame(),
-              icon: const Icon(Icons.stop, size: 16),
-              label: const Text('Terminer', style: TextStyle(fontSize: 12)),
+              icon: const Icon(Icons.stop, size: 20),
+              label: const Text('Terminer', style: TextStyle(fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(0, 44),
               ),
             ),
           ),
@@ -273,69 +251,36 @@ class _GameScreenState extends State<GameScreen> {
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _isError ? Colors.red[100] : Colors.green[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: AppDecorations.feedbackContainer(isError: _isError),
             child: Text(
               _feedbackMessage ?? ' ',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _isError ? Colors.red[700] : Colors.green[700],
-              ),
+              style: AppTextStyles.feedback(isError: _isError),
             ),
           ),
         ),
 
         // Bandeau horizontal des mots trouvés (hauteur fixe, scroll horizontal)
         Container(
-          height: 40,
+          height: 52,
           margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: AppDecorations.greyContainer(),
           child: playerWords.isEmpty
               ? Center(
                   child: Text(
                     'Vos mots apparaîtront ici',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontStyle: FontStyle.italic,
-                      fontSize: 12,
-                    ),
+                    style: AppTextStyles.placeholder,
                   ),
                 )
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: playerWords
-                        .map(
-                          (word) => Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.green[300]!),
-                            ),
-                            child: Text(
-                              word.text,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green[800],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children: [
+                      for (int i = 0; i < playerWords.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        WordChip(text: playerWords[i].text),
+                      ],
+                    ],
                   ),
                 ),
         ),
@@ -349,21 +294,11 @@ class _GameScreenState extends State<GameScreen> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 60), // Espace pour éviter le chevauchement
+            const SizedBox(height: 75), // Espace pour éviter le chevauchement
             if (_showZoomSlider)
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: AppDecorations.zoomSlider(),
                 child: RotatedBox(
                   quarterTurns: 3,
                   child: SizedBox(
@@ -373,7 +308,7 @@ class _GameScreenState extends State<GameScreen> {
                       min: SettingsService.minZoom,
                       max: SettingsService.maxZoom,
                       divisions: 10,
-                      activeColor: Colors.purple,
+                      activeColor: AppColors.purple,
                       onChanged: (value) {
                         settings.setGridZoom(value);
                       },
@@ -385,7 +320,7 @@ class _GameScreenState extends State<GameScreen> {
             // Bouton Zoom
             FloatingActionButton.small(
               heroTag: 'zoom_button',
-              backgroundColor: Colors.purple,
+              backgroundColor: AppColors.purple,
               onPressed: () {
                 setState(() {
                   _showZoomSlider = !_showZoomSlider;
@@ -400,7 +335,7 @@ class _GameScreenState extends State<GameScreen> {
             // Bouton Aide
             FloatingActionButton.small(
               heroTag: 'help_button',
-              backgroundColor: Colors.purple.withValues(alpha: 0.8),
+              backgroundColor: AppColors.purple.withValues(alpha: 0.8),
               onPressed: () => _showQuickHelp(context),
               child: const Icon(Icons.help_outline, color: Colors.white),
             ),
@@ -427,7 +362,7 @@ class _HelpItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.purple, size: 24),
+        Icon(icon, color: AppColors.purple, size: 24),
         const SizedBox(width: 12),
         Expanded(
           child: Text(

@@ -106,13 +106,38 @@ class GameLogicService {
   }
 
   /// Trouve tous les mots possibles dans la grille (optimisé avec Trie)
+  ///
+  /// Optimisations appliquées:
+  /// 1. Passage du TrieNode courant (évite de re-parcourir depuis la racine)
+  /// 2. Tableau booléen visited[] au lieu de List.contains() (O(1) vs O(n))
+  /// 3. Pré-calcul de la table des voisins (évite de recalculer à chaque appel)
   List<String> findAllPossibleWords(List<String> grid) {
     final Set<String> foundWords = {};
     final int gridSize = _getGridSize(grid);
+    final int totalCells = grid.length;
+    final root = _dictionaryService.root;
+
+    // Pré-calculer les voisins pour chaque cellule
+    final neighbors = List<List<int>>.generate(
+      totalCells,
+      (pos) => getNeighbors(pos, gridSize),
+    );
+
+    // Tableau de visite partagé (évite les allocations)
+    final visited = List<bool>.filled(totalCells, false);
 
     // Pour chaque position de départ
-    for (int startPos = 0; startPos < grid.length; startPos++) {
-      _findAllWordsDFS(grid, startPos, [startPos], '', foundWords, gridSize);
+    for (int startPos = 0; startPos < totalCells; startPos++) {
+      final char = grid[startPos];
+      final childNode = root.children[char];
+      if (childNode == null) continue;
+
+      visited[startPos] = true;
+      _findAllWordsDFS(
+        grid, startPos, childNode, char, 1,
+        foundWords, neighbors, visited, totalCells,
+      );
+      visited[startPos] = false;
     }
 
     // Trier par longueur décroissante puis alphabétiquement
@@ -129,35 +154,36 @@ class GameLogicService {
   void _findAllWordsDFS(
     List<String> grid,
     int currentPos,
-    List<int> currentPath,
+    TrieNode node,
     String currentWord,
+    int depth,
     Set<String> foundWords,
-    int gridSize,
+    List<List<int>> neighbors,
+    List<bool> visited,
+    int totalCells,
   ) {
-    // Construire le mot actuel
-    final word = currentWord + grid[currentPos];
-
-    // Vérifier le préfixe avec le Trie (élagage)
-    final (hasPrefix, isWord) = _dictionaryService.checkPrefix(word);
-
-    // Si ce préfixe n'existe pas, on arrête cette branche
-    if (!hasPrefix) return;
-
     // Si c'est un mot valide (>= 3 lettres), l'ajouter
-    if (isWord) {
-      foundWords.add(word);
+    if (node.isWord && depth >= 3) {
+      foundWords.add(currentWord);
     }
 
     // Limiter la profondeur à la taille de la grille
-    if (currentPath.length >= grid.length) return;
+    if (depth >= totalCells) return;
 
     // Explorer les voisins
-    for (int neighbor in getNeighbors(currentPos, gridSize)) {
-      if (!currentPath.contains(neighbor)) {
-        currentPath.add(neighbor);
-        _findAllWordsDFS(grid, neighbor, currentPath, word, foundWords, gridSize);
-        currentPath.removeLast();
-      }
+    for (final neighbor in neighbors[currentPos]) {
+      if (visited[neighbor]) continue;
+
+      final char = grid[neighbor];
+      final childNode = node.children[char];
+      if (childNode == null) continue;
+
+      visited[neighbor] = true;
+      _findAllWordsDFS(
+        grid, neighbor, childNode, currentWord + char, depth + 1,
+        foundWords, neighbors, visited, totalCells,
+      );
+      visited[neighbor] = false;
     }
   }
 

@@ -1,27 +1,25 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+
+import '../core/di/connection_factory.dart';
 import '../models/game.dart';
 import '../models/player.dart';
 import '../models/word.dart';
 import '../utils/constants.dart';
-import '../utils/platform_utils.dart';
+import 'connection/connection_interface.dart';
 import 'dictionary_service.dart';
 import 'game_logic_service.dart';
-import 'connection/connection_interface.dart';
-import 'connection/internet_connection.dart';
-import 'connection/bluetooth_connection.dart';
-import 'connection/bluetooth_connection_stub.dart';
-import 'connection/wifi_direct_connection.dart';
-import 'connection/wifi_direct_connection_stub.dart';
+import 'score_service.dart';
+import 'timer_service.dart';
 
 class GameProvider extends ChangeNotifier {
   Game? _game;
   Player? _currentPlayer;
   ConnectionInterface? _connection;
-  Timer? _gameTimer;
+  TimerService? _timerService;
   final GameLogicService _gameLogic = GameLogicService();
   final DictionaryService _dictionary = DictionaryService();
+  final ScoreService _scoreService = ScoreService();
 
   Game? get game => _game;
   Player? get currentPlayer => _currentPlayer;
@@ -41,27 +39,9 @@ class GameProvider extends ChangeNotifier {
   }) async {
     final playerId = const Uuid().v4();
 
-    _currentPlayer = Player(
-      id: playerId,
-      name: playerName,
-      isHost: isHost,
-    );
+    _currentPlayer = Player(id: playerId, name: playerName, isHost: isHost);
 
-    switch (connectionType) {
-      case ConnectionType.internet:
-        _connection = InternetConnection();
-        break;
-      case ConnectionType.bluetooth:
-        _connection = PlatformUtils.isBluetoothSupported
-            ? BluetoothConnection()
-            : BluetoothConnectionStub();
-        break;
-      case ConnectionType.wifiDirect:
-        _connection = PlatformUtils.isWifiDirectSupported
-            ? WifiDirectConnection()
-            : WifiDirectConnectionStub();
-        break;
-    }
+    _connection = ConnectionFactory.create(connectionType);
 
     _connection!.onGameUpdate = _handleGameUpdate;
     _connection!.onPlayerJoined = _handlePlayerJoined;
@@ -106,7 +86,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   void _handleGameEnd() {
-    _gameTimer?.cancel();
+    _timerService?.stop();
     _game?.endGame();
     notifyListeners();
   }
@@ -127,7 +107,7 @@ class GameProvider extends ChangeNotifier {
 
     // Ajouter le mot à la liste des mots du jeu s'il n'existe pas déjà
     final alreadyExists = _game!.allWords.any(
-      (w) => w.text == word.text && w.playerId == word.playerId
+      (w) => w.text == word.text && w.playerId == word.playerId,
     );
 
     if (!alreadyExists) {
@@ -148,26 +128,24 @@ class GameProvider extends ChangeNotifier {
   }
 
   void _startTimer() {
-    _gameTimer?.cancel();
-    _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_game == null) {
-        timer.cancel();
-        return;
-      }
-
-      _game!.remainingSeconds--;
-
-      if (_game!.remainingSeconds <= 0) {
-        timer.cancel();
+    _timerService?.dispose();
+    _timerService = TimerService(
+      initialDuration: _game!.remainingSeconds,
+      onTick: (remainingSeconds) {
+        if (_game != null) {
+          _game!.remainingSeconds = remainingSeconds;
+          notifyListeners();
+        }
+      },
+      onTimeUp: () {
         endGame();
-      }
-
-      notifyListeners();
-    });
+      },
+    );
+    _timerService!.start();
   }
 
   void endGame() {
-    _gameTimer?.cancel();
+    _timerService?.stop();
 
     // En mode multijoueur, valider les mots contre le dictionnaire maintenant
     if (!isTestMode && _game != null) {
@@ -242,15 +220,17 @@ class GameProvider extends ChangeNotifier {
     startGame();
   }
 
+  void replaySameGrid() {
+    _game?.resetWithSameGrid();
+    _connection?.broadcastGameState(_game!);
+    startGame();
+  }
+
   /// Mode test - Démarre une partie solo sans connexion (debug uniquement)
   void startTestGame(String playerName, {int? gameDuration}) {
     final playerId = const Uuid().v4();
 
-    _currentPlayer = Player(
-      id: playerId,
-      name: playerName,
-      isHost: true,
-    );
+    _currentPlayer = Player(id: playerId, name: playerName, isHost: true);
 
     _game = Game(
       id: const Uuid().v4(),
@@ -279,17 +259,15 @@ class GameProvider extends ChangeNotifier {
 
   int getCurrentScore() {
     if (_currentPlayer == null || _game == null) return 0;
-
-    int score = 0;
-    for (var word in _game!.allWords.where((w) => w.playerId == _currentPlayer!.id)) {
-      score += word.points;
-    }
-    return score;
+    return _scoreService.calculatePlayerScore(
+      _game!.allWords,
+      _currentPlayer!.id,
+    );
   }
 
   @override
   void dispose() {
-    _gameTimer?.cancel();
+    _timerService?.dispose();
     _connection?.disconnect();
     super.dispose();
   }

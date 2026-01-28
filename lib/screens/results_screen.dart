@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/definition_service.dart';
 import '../services/game_provider.dart';
 import '../services/game_logic_service.dart';
 import '../services/auth_service.dart';
@@ -12,6 +12,8 @@ import '../models/match_record.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 import 'game_screen.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/word_chip.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -31,6 +33,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   void initState() {
     super.initState();
+    DefinitionService().loadDefinitions();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _gameProvider = context.read<GameProvider>();
       _gameProvider?.addListener(_onGameStateChange);
@@ -99,7 +102,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Résultats'),
-        backgroundColor: Colors.purple,
+        backgroundColor: AppColors.purple,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
@@ -155,12 +158,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       // Titre manche
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.purple[400]!, Colors.purple[600]!],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        decoration: AppDecorations.roundTitle(),
                         child: Text(
                           'Manche ${game.roundNumber} terminée!',
                           textAlign: TextAlign.center,
@@ -202,10 +200,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(
-                              color: isCurrentPlayer ? Colors.blue[50] : Colors.grey[100],
+                              color: isCurrentPlayer ? AppColors.blue50 : AppColors.grey100,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isCurrentPlayer ? Colors.blue : Colors.grey[300]!,
+                                color: isCurrentPlayer ? AppColors.blue : AppColors.grey300,
                                 width: isCurrentPlayer ? 2 : 1,
                               ),
                             ),
@@ -236,14 +234,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                 Icon(
                                                   isExpanded ? Icons.expand_less : Icons.expand_more,
                                                   size: 20,
-                                                  color: Colors.grey[600],
+                                                  color: AppColors.grey600,
                                                 ),
                                               ],
                                             ),
                                             Text(
                                               '+${result.roundScore} cette manche • ${result.words.length} mots',
                                               style: TextStyle(
-                                                color: Colors.grey[600],
+                                                color: AppColors.grey600,
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -256,7 +254,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                           vertical: 6,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.purple,
+                                          color: AppColors.purple,
                                           borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Text(
@@ -304,6 +302,51 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
                       const SizedBox(height: 24),
 
+                      // Bouton rejouer la même grille (solo uniquement)
+                      if (game.players.length == 1)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: AppDecorations.replaySection(),
+                          child: Column(
+                            children: [
+                              Icon(Icons.replay, color: AppColors.amber700, size: 32),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Rejouer la même grille',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tentez d\'améliorer votre score avec la même grille!',
+                                style: TextStyle(
+                                  color: AppColors.grey700,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () => gameProvider.replaySameGrid(),
+                                icon: const Icon(Icons.replay),
+                                label: const Text('Rejouer cette grille'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.amber600,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 16),
+
                       // Vote nouvelle partie
                       _buildNewGameSection(context, gameProvider),
 
@@ -338,25 +381,30 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Widget _buildAllPossibleWordsSection(List<String> grid) {
+    final gameProvider = context.read<GameProvider>();
+    final currentPlayer = gameProvider.currentPlayer;
+    final userFoundWords = currentPlayer?.foundWords.toSet() ?? <String>{};
+
+    final totalPossible = _allPossibleWords?.length ?? 0;
+    final notFoundCount = _allPossibleWords
+        ?.where((word) => !userFoundWords.contains(word))
+        .length ?? 0;
+
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange[300]!),
-      ),
+      decoration: AppDecorations.possibleWordsSection(),
       child: ExpansionTile(
-        leading: Icon(Icons.lightbulb, color: Colors.orange[700]),
+        leading: Icon(Icons.lightbulb, color: AppColors.orange700),
         title: Text(
-          'Tous les mots possibles',
+          'Mots que vous avez manqués',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.orange[800],
+            color: AppColors.orange800,
           ),
         ),
         subtitle: _allPossibleWords != null
             ? Text(
-                '${_allPossibleWords!.length} mots trouvés',
-                style: TextStyle(color: Colors.orange[600], fontSize: 12),
+                '$notFoundCount mots manqués sur $totalPossible possibles',
+                style: TextStyle(color: AppColors.orange600, fontSize: 12),
               )
             : null,
         onExpansionChanged: (expanded) {
@@ -379,8 +427,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
       _isLoadingWords = true;
     });
 
-    // Calculer dans un Future pour ne pas bloquer l'UI
-    Future.microtask(() {
+    // Use Future.delayed to yield to the event loop, letting the UI paint
+    // the loading state before running the expensive computation.
+    // Note: compute() cannot be used here because DictionaryService is a
+    // singleton that loads data via rootBundle on the main isolate; a new
+    // isolate would get a fresh, uninitialised instance.
+    Future.delayed(Duration.zero, () {
       final gameLogic = GameLogicService();
       final words = gameLogic.findAllPossibleWords(grid);
       if (mounted) {
@@ -412,9 +464,38 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return const Text('Aucun mot trouvé');
     }
 
-    // Grouper par longueur
+    // Récupérer les mots trouvés par l'utilisateur
+    final gameProvider = context.read<GameProvider>();
+    final currentPlayer = gameProvider.currentPlayer;
+    final userFoundWords = currentPlayer?.foundWords.toSet() ?? <String>{};
+
+    // Filtrer pour ne garder que les mots NON trouvés par l'utilisateur
+    final wordsNotFound = _allPossibleWords!
+        .where((word) => !userFoundWords.contains(word))
+        .toList();
+
+    if (wordsNotFound.isEmpty) {
+      return Center(
+        child: Column(
+          children: [
+            Icon(Icons.celebration, size: 48, color: AppColors.amber700),
+            const SizedBox(height: 12),
+            const Text(
+              'Félicitations! Vous avez trouvé tous les mots possibles!',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Grouper par longueur (uniquement les mots non trouvés)
     final wordsByLength = <int, List<String>>{};
-    for (final word in _allPossibleWords!) {
+    for (final word in wordsNotFound) {
       final length = word.length;
       wordsByLength.putIfAbsent(length, () => []).add(word);
     }
@@ -435,7 +516,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.orange[200],
+                  color: AppColors.orange200,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -443,7 +524,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.orange[900],
+                    color: AppColors.orange900,
                   ),
                 ),
               ),
@@ -453,27 +534,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 runSpacing: 8,
                 children: words.map((word) {
                   final isSelected = _selectedWord == word;
-                  return GestureDetector(
+                  return WordChip(
+                    text: word,
+                    backgroundColor: isSelected ? AppColors.orange300 : Colors.white,
+                    borderColor: isSelected ? AppColors.orange700 : AppColors.orange200,
+                    textColor: isSelected ? AppColors.orange900 : AppColors.grey700,
+                    fontSize: 18,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    isSelected: isSelected,
                     onTap: () => _selectWord(word, grid),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.orange[300] : Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected ? Colors.orange[700]! : Colors.orange[200]!,
-                          width: 2, // Largeur fixe pour éviter les sauts de layout
-                        ),
-                      ),
-                      child: Text(
-                        word,
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: isSelected ? Colors.orange[900] : Colors.grey[800],
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        ),
-                      ),
-                    ),
                   );
                 }).toList(),
               ),
@@ -489,23 +558,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.brown[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.brown[200]!),
-      ),
+      decoration: AppDecorations.reviewGrid(),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.grid_4x4, color: Colors.brown[700]),
+              Icon(Icons.grid_4x4, color: AppColors.brown700),
               const SizedBox(width: 8),
               Text(
                 'Grille de la manche',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.brown[800],
+                  color: AppColors.brown800,
                 ),
               ),
               const Spacer(),
@@ -524,7 +589,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     icon: const Icon(Icons.clear, size: 16),
                     label: const Text('Effacer'),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.brown[600],
+                      foregroundColor: AppColors.brown600,
                     ),
                   ),
                 ),
@@ -538,16 +603,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
             child: _selectedWord != null
               ? Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green[100],
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green[300]!),
-                  ),
+                  decoration: AppDecorations.selectedWordPill(),
                   child: Text(
                     'Mot sélectionné: $_selectedWord',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.green[800],
+                      color: AppColors.green800,
                     ),
                   ),
                 )
@@ -561,7 +622,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.brown[100],
+                  color: AppColors.brown100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: GridView.builder(
@@ -578,10 +639,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: isHighlighted ? Colors.green[300] : Colors.amber[100],
+                        color: isHighlighted ? AppColors.green300 : AppColors.amber100,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isHighlighted ? Colors.green[700]! : Colors.brown[400]!,
+                          color: isHighlighted ? AppColors.green700 : AppColors.brown400,
                           width: isHighlighted ? 3 : 2,
                         ),
                         boxShadow: [
@@ -600,7 +661,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               style: TextStyle(
                                 fontSize: gridSize <= 4 ? 22 : 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.brown[900],
+                                color: AppColors.brown900,
                               ),
                             ),
                           ),
@@ -612,7 +673,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                 width: 16,
                                 height: 16,
                                 decoration: BoxDecoration(
-                                  color: Colors.green[700],
+                                  color: AppColors.green700,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -640,7 +701,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             'Cliquez sur un mot ci-dessous pour voir son chemin',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.brown[600],
+              color: AppColors.brown600,
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -666,215 +727,94 @@ class _ResultsScreenState extends State<ResultsScreen> {
     });
   }
 
-  Future<List<String>> _fetchDefinitions(String word) async {
-    final lowercaseWord = word.toLowerCase();
-
-    // Essayer d'abord le CNRTL (TLFi)
-    try {
-      final cnrtlUrl = Uri.parse('https://www.cnrtl.fr/definition/$lowercaseWord');
-      final response = await http.get(cnrtlUrl).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final definitions = _parseCnrtlDefinitions(response.body);
-        if (definitions.isNotEmpty) {
-          return definitions;
-        }
-      }
-    } catch (e) {
-      // Erreur CNRTL, on continue
-    }
-
-    // Fallback: Larousse
-    try {
-      final larousseUrl = Uri.parse('https://www.larousse.fr/dictionnaires/francais/$lowercaseWord');
-      final response = await http.get(larousseUrl).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final definitions = _parseLarousseDefinitions(response.body);
-        if (definitions.isNotEmpty) {
-          return definitions;
-        }
-      }
-    } catch (e) {
-      // Erreur Larousse
-    }
-
-    return [];
-  }
-
-  List<String> _parseCnrtlDefinitions(String html) {
-    final definitions = <String>[];
-
-    // Chercher les définitions dans les balises tlf_cdefinition
-    final defRegex = RegExp(r'<span[^>]*class="[^"]*tlf_cdefinition[^"]*"[^>]*>(.*?)</span>', dotAll: true);
-    final matches = defRegex.allMatches(html);
-
-    for (final match in matches) {
-      if (definitions.length >= 3) break;
-
-      var text = match.group(1) ?? '';
-      // Nettoyer le HTML
-      text = text
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .trim();
-
-      if (text.isNotEmpty && text.length > 10) {
-        definitions.add(text);
-      }
-    }
-
-    // Si pas de définitions trouvées, essayer une autre méthode
-    if (definitions.isEmpty) {
-      final altRegex = RegExp(r'<div[^>]*class="[^"]*tlf_parah[^"]*"[^>]*>(.*?)</div>', dotAll: true);
-      final altMatches = altRegex.allMatches(html);
-
-      for (final match in altMatches) {
-        if (definitions.length >= 2) break;
-
-        var text = match.group(1) ?? '';
-        text = text
-          .replaceAll(RegExp(r'<[^>]+>'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-
-        if (text.isNotEmpty && text.length > 20 && !text.contains('Prononc.')) {
-          definitions.add(text);
-        }
-      }
-    }
-
-    return definitions;
-  }
-
-  List<String> _parseLarousseDefinitions(String html) {
-    final definitions = <String>[];
-
-    // Chercher les définitions Larousse
-    final defRegex = RegExp(r'<li[^>]*class="[^"]*DivisionDefinition[^"]*"[^>]*>(.*?)</li>', dotAll: true);
-    final matches = defRegex.allMatches(html);
-
-    for (final match in matches) {
-      if (definitions.length >= 3) break;
-
-      var text = match.group(1) ?? '';
-      text = text
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll('&nbsp;', ' ')
-        .trim();
-
-      if (text.isNotEmpty && text.length > 10) {
-        definitions.add(text);
-      }
-    }
-
-    return definitions;
+  List<String> _lookupDefinitions(String word) {
+    return DefinitionService().getDefinitions(word);
   }
 
   void _showDefinitionDialog(String word) {
     final lowercaseWord = word.toLowerCase();
     final cnrtlUrl = 'https://www.cnrtl.fr/definition/$lowercaseWord';
+    final definitions = _lookupDefinitions(word);
 
     showDialog(
       context: context,
-      builder: (dialogContext) => FutureBuilder<List<String>>(
-        future: _fetchDefinitions(word),
-        builder: (context, snapshot) {
-          final definitions = snapshot.data ?? [];
-          final isLoading = snapshot.connectionState == ConnectionState.waiting;
-
-          return AlertDialog(
-            title: Text(
-              word,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-              ),
-            ),
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 300),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (definitions.isEmpty)
-                      Text(
-                        'Définition non disponible',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
-                        ),
-                      )
-                    else
-                      ...definitions.asMap().entries.map((entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.orange[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${entry.key + 1}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange[800],
-                                    fontSize: 12,
-                                  ),
-                                ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          word,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 300),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (definitions.isEmpty)
+                  Text(
+                    'Définition non disponible',
+                    style: TextStyle(
+                      color: AppColors.grey600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                else
+                  ...definitions.asMap().entries.map((entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: AppColors.orange100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${entry.key + 1}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.orange800,
+                                fontSize: 12,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                entry.value,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      )),
-                  ],
-                ),
-              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Fermer'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final uri = Uri.parse(cnrtlUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                icon: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('CNRTL'),
-              ),
-            ],
-          );
-        },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Fermer'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(cnrtlUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('CNRTL'),
+          ),
+        ],
       ),
     );
   }
@@ -889,15 +829,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
         icon = Icons.emoji_events;
         break;
       case 2:
-        color = Colors.grey[400]!;
+        color = AppColors.grey400;
         icon = Icons.emoji_events;
         break;
       case 3:
-        color = Colors.brown[300]!;
+        color = AppColors.brown300;
         icon = Icons.emoji_events;
         break;
       default:
-        color = Colors.grey[300]!;
+        color = AppColors.grey300;
         icon = null;
     }
 
@@ -927,14 +867,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: AppColors.grey100,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
+        child: Text(
           'Aucun mot trouvé',
           style: TextStyle(
             fontStyle: FontStyle.italic,
-            color: Colors.grey,
+            color: AppColors.grey400,
           ),
         ),
       );
@@ -948,7 +888,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: AppColors.grey100,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -957,9 +897,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
           if (validWords.isNotEmpty) ...[
             Text(
               'Mots comptés (${validWords.length})',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.green,
+                color: AppColors.green500,
               ),
             ),
             const SizedBox(height: 8),
@@ -972,9 +912,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   onTap: () => _selectWord(word.text, grid),
                   child: Chip(
                     label: Text('${word.text} (+${word.points})'),
-                    backgroundColor: isSelected ? Colors.green[300] : Colors.green[100],
+                    backgroundColor: isSelected ? AppColors.green300 : AppColors.green100,
                     side: BorderSide(
-                      color: isSelected ? Colors.green[700]! : Colors.green[300]!,
+                      color: isSelected ? AppColors.green700 : AppColors.green300,
                       width: 2, // Largeur fixe pour éviter les sauts de layout
                     ),
                   ),
@@ -986,9 +926,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             const SizedBox(height: 16),
             Text(
               'Mots trouvés par d\'autres (${duplicateWords.length})',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: AppColors.grey400,
               ),
             ),
             const SizedBox(height: 8),
@@ -1002,14 +942,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: Chip(
                     label: Text(
                       word.text,
-                      style: const TextStyle(
+                      style: TextStyle(
                         decoration: TextDecoration.lineThrough,
-                        color: Colors.grey,
+                        color: AppColors.grey400,
                       ),
                     ),
-                    backgroundColor: isSelected ? Colors.grey[400] : Colors.grey[200],
+                    backgroundColor: isSelected ? AppColors.grey400 : AppColors.grey200,
                     side: BorderSide(
-                      color: isSelected ? Colors.grey[700]! : Colors.grey[400]!,
+                      color: isSelected ? AppColors.grey700 : AppColors.grey400,
                       width: 2, // Largeur fixe pour éviter les sauts de layout
                     ),
                   ),
@@ -1023,7 +963,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               'Mots invalides (${invalidWords.length})',
               style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.red,
+                color: AppColors.red,
               ),
             ),
             const SizedBox(height: 8),
@@ -1039,12 +979,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       word.text,
                       style: const TextStyle(
                         decoration: TextDecoration.lineThrough,
-                        color: Colors.red,
+                        color: AppColors.red,
                       ),
                     ),
-                    backgroundColor: isSelected ? Colors.red[200] : Colors.red[50],
+                    backgroundColor: isSelected ? AppColors.red200 : AppColors.red50,
                     side: BorderSide(
-                      color: isSelected ? Colors.red[700]! : Colors.red[300]!,
+                      color: isSelected ? AppColors.red700 : AppColors.red300,
                       width: 2,
                     ),
                   ),
@@ -1063,7 +1003,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         'Aucun mot trouvé',
         style: TextStyle(
           fontStyle: FontStyle.italic,
-          color: Colors.grey[600],
+          color: AppColors.grey600,
         ),
       );
     }
@@ -1078,30 +1018,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
       children: [
         if (validWords.isNotEmpty) ...[
           Wrap(
-            spacing: 6,
-            runSpacing: 4,
+            spacing: 8,
+            runSpacing: 8,
             children: validWords.map((word) {
               final isSelected = _selectedWord == word.text;
-              return GestureDetector(
+              return WordChip(
+                text: '${word.text} +${word.points}',
+                isSelected: isSelected,
                 onTap: () => _selectWord(word.text, grid),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.green[300] : Colors.green[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? Colors.green[700]! : Colors.green[300]!,
-                    ),
-                  ),
-                  child: Text(
-                    '${word.text} +${word.points}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green[800],
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
               );
             }).toList(),
           ),
@@ -1109,30 +1033,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
         if (duplicateWords.isNotEmpty) ...[
           if (validWords.isNotEmpty) const SizedBox(height: 8),
           Wrap(
-            spacing: 6,
-            runSpacing: 4,
+            spacing: 8,
+            runSpacing: 8,
             children: duplicateWords.map((word) {
               final isSelected = _selectedWord == word.text;
-              return GestureDetector(
+              return WordChip(
+                text: word.text,
+                backgroundColor: isSelected ? AppColors.grey400 : AppColors.grey200,
+                borderColor: isSelected ? AppColors.grey600 : AppColors.grey400,
+                textColor: AppColors.grey600,
+                fontWeight: FontWeight.normal,
+                textDecoration: TextDecoration.lineThrough,
+                isSelected: isSelected,
                 onTap: () => _selectWord(word.text, grid),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.grey[400] : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? Colors.grey[600]! : Colors.grey[400]!,
-                    ),
-                  ),
-                  child: Text(
-                    word.text,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      decoration: TextDecoration.lineThrough,
-                    ),
-                  ),
-                ),
               );
             }).toList(),
           ),
@@ -1140,30 +1053,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
         if (invalidWords.isNotEmpty) ...[
           if (validWords.isNotEmpty || duplicateWords.isNotEmpty) const SizedBox(height: 8),
           Wrap(
-            spacing: 6,
-            runSpacing: 4,
+            spacing: 8,
+            runSpacing: 8,
             children: invalidWords.map((word) {
               final isSelected = _selectedWord == word.text;
-              return GestureDetector(
+              return WordChip(
+                text: word.text,
+                backgroundColor: isSelected ? AppColors.red200 : AppColors.red50,
+                borderColor: isSelected ? AppColors.red600 : AppColors.red300,
+                textColor: AppColors.red700,
+                fontWeight: FontWeight.normal,
+                textDecoration: TextDecoration.lineThrough,
+                isSelected: isSelected,
                 onTap: () => _selectWord(word.text, grid),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.red[200] : Colors.red[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? Colors.red[600]! : Colors.red[300]!,
-                    ),
-                  ),
-                  child: Text(
-                    word.text,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red[700],
-                      decoration: TextDecoration.lineThrough,
-                    ),
-                  ),
-                ),
               );
             }).toList(),
           ),
@@ -1181,11 +1083,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue),
-      ),
+      decoration: AppDecorations.newGameSection(),
       child: Column(
         children: [
           const Text(
@@ -1198,7 +1096,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           const SizedBox(height: 8),
           Text(
             '$votedCount/$totalPlayers joueurs ont voté',
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: AppColors.grey600),
           ),
           const SizedBox(height: 12),
 
@@ -1209,12 +1107,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
               return Chip(
                 avatar: Icon(
                   player.votedForNewGame ? Icons.check_circle : Icons.hourglass_empty,
-                  color: player.votedForNewGame ? Colors.green : Colors.grey,
+                  color: player.votedForNewGame ? AppColors.green500 : AppColors.grey400,
                   size: 18,
                 ),
                 label: Text(player.name),
                 backgroundColor:
-                    player.votedForNewGame ? Colors.green[100] : Colors.grey[200],
+                    player.votedForNewGame ? AppColors.green100 : AppColors.grey200,
               );
             }).toList(),
           ),
@@ -1224,7 +1122,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ElevatedButton(
               onPressed: () => gameProvider.voteForNewGame(),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.green500,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
@@ -1234,11 +1132,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
               child: const Text('Voter pour une nouvelle partie'),
             )
           else
-            const Text(
+            Text(
               'Vous avez voté! En attente des autres joueurs...',
               style: TextStyle(
                 fontStyle: FontStyle.italic,
-                color: Colors.grey,
+                color: AppColors.grey400,
               ),
             ),
         ],
