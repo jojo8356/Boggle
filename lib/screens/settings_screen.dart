@@ -25,6 +25,13 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 32),
 
+              // Section Accessibilité
+              _buildSectionHeader('Accessibilité'),
+              const SizedBox(height: 8),
+              _buildSeniorModeToggle(context, settings),
+
+              const SizedBox(height: 32),
+
               // Section Zoom
               _buildSectionHeader('Zoom de la grille'),
               const SizedBox(height: 8),
@@ -46,6 +53,52 @@ class SettingsScreen extends StatelessWidget {
         fontSize: 18,
         fontWeight: FontWeight.bold,
         color: Colors.purple,
+      ),
+    );
+  }
+
+  Widget _buildSeniorModeToggle(BuildContext context, SettingsService settings) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              title: const Text(
+                'Mode Senior',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              subtitle: const Text(
+                'Active un zoom plus grand (140%), une police plus lisible et un contraste augmenté',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: settings.seniorMode,
+              activeTrackColor: Colors.purple[200],
+              inactiveTrackColor: Colors.grey[300],
+              onChanged: (value) {
+                settings.setSeniorMode(value);
+              },
+            ),
+            if (settings.seniorMode)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 16),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green[600], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Zoom automatique: ${settings.formatZoom(SettingsService.seniorModeZoom)}',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
