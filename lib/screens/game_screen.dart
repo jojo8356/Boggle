@@ -10,6 +10,7 @@ import '../widgets/boggle_grid.dart';
 import '../widgets/score_display.dart';
 import '../widgets/timer_widget.dart';
 import 'results_screen.dart';
+import 'game_end_transition.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -42,9 +43,24 @@ class _GameScreenState extends State<GameScreen> {
   void _onGameStateChange() {
     if (_gameProvider?.game?.state == GameState.finished) {
       _gameProvider?.removeListener(_onGameStateChange);
+      final currentPlayer = _gameProvider?.currentPlayer;
+      final wordsFound = currentPlayer?.foundWords.length ?? 0;
+      final totalScore = currentPlayer?.score ?? 0;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const ResultsScreen()),
+        MaterialPageRoute(
+          builder: (context) => GameEndTransition(
+            wordsFound: wordsFound,
+            totalScore: totalScore,
+            onComplete: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ResultsScreen()),
+              );
+            },
+          ),
+        ),
       );
     }
   }
