@@ -1,4 +1,3 @@
-import '../../services/connection/bluetooth_connection.dart';
 import '../../services/connection/bluetooth_connection_stub.dart';
 import '../../services/connection/connection_interface.dart';
 import '../../services/connection/internet_connection.dart';
@@ -16,9 +15,7 @@ class ConnectionFactory {
       case ConnectionType.internet:
         return InternetConnection();
       case ConnectionType.bluetooth:
-        return PlatformUtils.isBluetoothSupported
-            ? BluetoothConnection()
-            : BluetoothConnectionStub();
+        return BluetoothConnectionStub();
       case ConnectionType.wifiDirect:
         return PlatformUtils.isWifiDirectSupported
             ? WifiDirectConnection()
