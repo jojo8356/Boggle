@@ -11,9 +11,12 @@ class TutorialScreen extends StatefulWidget {
   State<TutorialScreen> createState() => _TutorialScreenState();
 }
 
-class _TutorialScreenState extends State<TutorialScreen> {
+class _TutorialScreenState extends State<TutorialScreen>
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  late AnimationController _animationController;
+  late Animation<double> _highlightAnimation;
 
   final List<TutorialStep> _steps = [
     TutorialStep(
@@ -42,6 +45,22 @@ class _TutorialScreenState extends State<TutorialScreen> {
       color: Colors.amber,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _highlightAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _animationController.repeat(reverse: true);
+  }
 
   void _nextPage() {
     if (_currentPage < _steps.length - 1) {
@@ -80,6 +99,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   @override
   void dispose() {
+    _animationController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -196,118 +216,158 @@ class _TutorialScreenState extends State<TutorialScreen> {
   }
 
   Widget _buildPage(TutorialStep step) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Icône
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
             ),
-            child: Icon(
-              step.icon,
-              size: 80,
-              color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icone
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      step.icon,
+                      size: 80,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Titre
+                  Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  // Description
+                  Text(
+                    step.description,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  // Demo de grille optionnelle
+                  if (step.showGridDemo) ...[
+                    const SizedBox(height: 32),
+                    _buildGridDemo(),
+                  ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 32),
-          // Titre
-          Text(
-            step.title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          // Description
-          Text(
-            step.description,
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.white,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          // Démo de grille optionnelle
-          if (step.showGridDemo) ...[
-            const SizedBox(height: 32),
-            _buildGridDemo(),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildGridDemo() {
-    // Mini grille de démonstration avec animation
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          // Mini grille 3x3
-          SizedBox(
-            width: 150,
-            height: 150,
-            child: GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-              children: ['M', 'O', 'T', 'A', 'B', 'C', 'D', 'E', 'F']
-                  .asMap()
-                  .entries
-                  .map((entry) {
-                final isHighlighted = entry.key < 3; // Highlight M-O-T
-                return Container(
-                  decoration: BoxDecoration(
-                    color: isHighlighted
-                        ? Colors.blue[300]
-                        : Colors.amber[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isHighlighted
-                          ? Colors.blue[700]!
-                          : Colors.brown[400]!,
-                      width: isHighlighted ? 3 : 2,
-                    ),
+    // Mini grille de demonstration avec animation
+    return AnimatedBuilder(
+      animation: _highlightAnimation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Mini grille 3x3
+              SizedBox(
+                width: 150,
+                height: 150,
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 4,
+                    crossAxisSpacing: 4,
                   ),
-                  child: Center(
-                    child: Text(
-                      entry.value,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.brown[900],
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 9,
+                  itemBuilder: (context, index) {
+                    const letters = ['M', 'O', 'T', 'A', 'B', 'C', 'D', 'E', 'F'];
+                    final isHighlighted = index < 3; // Highlight M-O-T
+                    final animatedBorderWidth = isHighlighted
+                        ? 2.0 + (_highlightAnimation.value * 2.0)
+                        : 2.0;
+                    final animatedColor = isHighlighted
+                        ? Color.lerp(
+                            Colors.blue[200],
+                            Colors.blue[400],
+                            _highlightAnimation.value,
+                          )
+                        : Colors.amber[100];
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: animatedColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isHighlighted
+                              ? Colors.blue[700]!
+                              : Colors.brown[400]!,
+                          width: animatedBorderWidth,
+                        ),
+                        boxShadow: isHighlighted
+                            ? [
+                                BoxShadow(
+                                  color: Colors.blue.withValues(
+                                    alpha: 0.3 * _highlightAnimation.value,
+                                  ),
+                                  blurRadius: 8 * _highlightAnimation.value,
+                                  spreadRadius: 2 * _highlightAnimation.value,
+                                ),
+                              ]
+                            : null,
                       ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+                      child: Center(
+                        child: Text(
+                          letters[index],
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.brown[900],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Exemple: MOT',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Exemple: MOT',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
