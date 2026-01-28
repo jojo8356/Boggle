@@ -17,6 +17,9 @@ class DictionaryService {
 
   bool get isLoaded => _isLoaded;
 
+  /// Racine du Trie, exposée pour le solver optimisé
+  TrieNode get root => _root;
+
   Future<void> loadDictionary() async {
     if (_isLoaded) return;
 
@@ -57,22 +60,6 @@ class DictionaryService {
     if (!_isLoaded) return false;
     if (word.length < 3) return false;
     return _words.contains(_normalize(word.toUpperCase()));
-  }
-
-  /// Vérifie si un préfixe existe dans le dictionnaire (pour élagage)
-  bool hasPrefix(String prefix) {
-    if (!_isLoaded) return false;
-    prefix = _normalize(prefix.toUpperCase());
-
-    TrieNode node = _root;
-    for (int i = 0; i < prefix.length; i++) {
-      final char = prefix[i];
-      if (!node.children.containsKey(char)) {
-        return false;
-      }
-      node = node.children[char]!;
-    }
-    return true;
   }
 
   /// Vérifie si un préfixe existe et si c'est aussi un mot valide
@@ -118,6 +105,4 @@ class DictionaryService {
     }
     return result.toString();
   }
-
-  int get wordCount => _words.length;
 }

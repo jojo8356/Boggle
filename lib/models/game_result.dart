@@ -15,8 +15,6 @@ class PlayerResult {
     required this.totalScore,
   });
 
-  List<Word> get validWords => words.where((w) => !w.isDuplicate).toList();
-  List<Word> get duplicateWords => words.where((w) => w.isDuplicate).toList();
 }
 
 class GameResult {
@@ -27,11 +25,6 @@ class GameResult {
     required this.playerResults,
     required this.roundNumber,
   });
-
-  PlayerResult? getWinner() {
-    if (playerResults.isEmpty) return null;
-    return playerResults.reduce((a, b) => a.roundScore > b.roundScore ? a : b);
-  }
 
   List<PlayerResult> getRanking() {
     final sorted = List<PlayerResult>.from(playerResults);
