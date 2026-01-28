@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsService extends ChangeNotifier {
   static const String _keyGameDuration = 'game_duration';
   static const String _keyGridZoom = 'grid_zoom';
+  static const String _keyHasSeenTutorial = 'has_seen_tutorial';
 
   // Valeurs par défaut
   static const int defaultGameDuration = 180; // 3 minutes
@@ -13,9 +14,11 @@ class SettingsService extends ChangeNotifier {
 
   int _gameDuration = defaultGameDuration;
   double _gridZoom = defaultGridZoom;
+  bool _hasSeenTutorial = false;
 
   int get gameDuration => _gameDuration;
   double get gridZoom => _gridZoom;
+  bool get hasSeenTutorial => _hasSeenTutorial;
 
   // Options de durée disponibles (en secondes)
   static const List<int> durationOptions = [60, 120, 180, 240, 300]; // 1, 2, 3, 4, 5 minutes
@@ -24,6 +27,21 @@ class SettingsService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _gameDuration = prefs.getInt(_keyGameDuration) ?? defaultGameDuration;
     _gridZoom = prefs.getDouble(_keyGridZoom) ?? defaultGridZoom;
+    _hasSeenTutorial = prefs.getBool(_keyHasSeenTutorial) ?? false;
+    notifyListeners();
+  }
+
+  Future<void> setTutorialSeen() async {
+    _hasSeenTutorial = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyHasSeenTutorial, true);
+    notifyListeners();
+  }
+
+  Future<void> resetTutorial() async {
+    _hasSeenTutorial = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyHasSeenTutorial, false);
     notifyListeners();
   }
 

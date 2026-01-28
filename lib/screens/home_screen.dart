@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as bt;
 import '../services/game_provider.dart';
 import '../services/settings_service.dart';
 import '../services/auth_service.dart';
-import '../services/connection/bluetooth_connection.dart';
 import '../utils/constants.dart';
 import 'lobby_screen.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'auth_screen.dart';
 import 'stats_screen.dart';
+import 'tutorial_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +20,36 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _nameController = TextEditingController();
+  bool _tutorialChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkTutorial();
+  }
+
+  void _checkTutorial() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_tutorialChecked) {
+        _tutorialChecked = true;
+        final settings = Provider.of<SettingsService>(context, listen: false);
+        if (!settings.hasSeenTutorial) {
+          _showTutorial();
+        }
+      }
+    });
+  }
+
+  void _showTutorial() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TutorialScreen(
+          onComplete: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -126,45 +155,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showBluetoothDialog() async {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez entrer votre nom')),
-      );
-      return;
-    }
-
-    // Vérifier si Bluetooth est activé
-    final isEnabled = await BluetoothConnection.isBluetoothEnabled();
-    if (!isEnabled) {
-      final enabled = await BluetoothConnection.requestEnable();
-      if (enabled != true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bluetooth doit être activé')),
-          );
-        }
-        return;
-      }
-    }
-
-    // Récupérer les appareils appairés
-    final devices = await BluetoothConnection.getPairedDevices();
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => _BluetoothDeviceDialog(
-        devices: devices,
-        playerName: _nameController.text.trim(),
-        onDeviceSelected: (device) {
-          Navigator.pop(context);
-          _navigateToLobby(ConnectionType.bluetooth, false, device.address);
-        },
-      ),
-    );
-  }
+  // Bluetooth désactivé - non utilisé
+  // void _showBluetoothDialog() async {
+  //   if (_nameController.text.trim().isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Veuillez entrer votre nom')),
+  //     );
+  //     return;
+  //   }
+  //   // Code Bluetooth commenté...
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +223,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           tooltip: 'Se connecter',
                         );
                       },
+                    ),
+                    IconButton(
+                      onPressed: _showTutorial,
+                      icon: const Icon(Icons.help_outline, color: Colors.white, size: 28),
+                      tooltip: 'Aide',
                     ),
                     IconButton(
                       onPressed: () {
@@ -297,14 +302,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => _showConnectionDialog(ConnectionType.internet),
                     ),
                     const SizedBox(height: 12),
-                    _ConnectionButton(
-                      icon: Icons.bluetooth,
-                      label: 'Bluetooth',
-                      description: 'Jouer à proximité',
-                      color: Colors.blue,
-                      onTap: () => _showBluetoothDialog(),
-                    ),
-                    const SizedBox(height: 12),
+                    // Bluetooth désactivé - non utilisé
+                    // _ConnectionButton(
+                    //   icon: Icons.bluetooth,
+                    //   label: 'Bluetooth',
+                    //   description: 'Jouer à proximité',
+                    //   color: Colors.blue,
+                    //   onTap: () => _showBluetoothDialog(),
+                    // ),
+                    // const SizedBox(height: 12),
                     _ConnectionButton(
                       icon: Icons.person,
                       label: 'Solo',
@@ -478,51 +484,7 @@ class _ConnectionDialogState extends State<_ConnectionDialog> {
   }
 }
 
-class _BluetoothDeviceDialog extends StatelessWidget {
-  final List<bt.BluetoothDevice> devices;
-  final String playerName;
-  final Function(bt.BluetoothDevice) onDeviceSelected;
-
-  const _BluetoothDeviceDialog({
-    required this.devices,
-    required this.playerName,
-    required this.onDeviceSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Appareils Bluetooth'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: devices.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Aucun appareil appairé trouvé.\n\nAppairez d\'abord votre appareil dans les paramètres Bluetooth.',
-                  textAlign: TextAlign.center,
-                ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                itemCount: devices.length,
-                itemBuilder: (context, index) {
-                  final device = devices[index];
-                  return ListTile(
-                    leading: const Icon(Icons.bluetooth),
-                    title: Text(device.name ?? 'Appareil inconnu'),
-                    subtitle: Text(device.address),
-                    onTap: () => onDeviceSelected(device),
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-      ],
-    );
-  }
-}
+// Bluetooth désactivé - classe commentée
+// class _BluetoothDeviceDialog extends StatelessWidget {
+//   ...
+// }
