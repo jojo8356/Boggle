@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as bt;
 import '../services/game_provider.dart';
@@ -305,11 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => _showBluetoothDialog(),
                     ),
                     const SizedBox(height: 12),
-                    _ConnectionButton(
-                      icon: Icons.person,
-                      label: 'Solo',
-                      description: 'Jouer seul',
-                      color: Colors.purple,
+                    _ShakeButton(
                       onTap: _startTestGame,
                     ),
                   ],
@@ -523,6 +520,148 @@ class _BluetoothDeviceDialog extends StatelessWidget {
           child: const Text('Annuler'),
         ),
       ],
+    );
+  }
+}
+
+class _ShakeButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ShakeButton({required this.onTap});
+
+  @override
+  State<_ShakeButton> createState() => _ShakeButtonState();
+}
+
+class _ShakeButtonState extends State<_ShakeButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+  bool _isShaking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
+    );
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  void _onPressed() async {
+    if (_isShaking) return;
+
+    setState(() {
+      _isShaking = true;
+    });
+
+    // Vibration pattern
+    HapticFeedback.mediumImpact();
+    await Future.delayed(const Duration(milliseconds: 100));
+    HapticFeedback.mediumImpact();
+    await Future.delayed(const Duration(milliseconds: 100));
+    HapticFeedback.heavyImpact();
+
+    // Shake animation
+    await _shakeController.forward();
+    _shakeController.reset();
+
+    setState(() {
+      _isShaking = false;
+    });
+
+    // Start game
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, child) {
+        final shake = _isShaking
+            ? ((_shakeAnimation.value * 10) - 5) *
+              (1 - _shakeAnimation.value) * 2
+            : 0.0;
+        return Transform.translate(
+          offset: Offset(shake, 0),
+          child: child,
+        );
+      },
+      child: Material(
+        color: Colors.orange,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 8,
+        shadowColor: Colors.orange.withValues(alpha: 0.5),
+        child: InkWell(
+          onTap: _onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.casino,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Secouer !',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Jouer seul - Mélanger les dés',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
