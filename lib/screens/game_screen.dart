@@ -291,7 +291,7 @@ class _GameScreenState extends State<GameScreen> {
         // Liste des mots trouvés en bas (s'adapte au contenu)
         if (playerWords.isNotEmpty)
           Container(
-            margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+            margin: const EdgeInsets.fromLTRB(8, 4, 8, 16),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.grey[100],
