@@ -5,9 +5,11 @@ import 'services/dictionary_service.dart';
 import 'services/settings_service.dart';
 import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
+import 'core/di/injection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await configureDependencies();
 
   // Charger le dictionnaire au démarrage
   final dictionary = DictionaryService();
