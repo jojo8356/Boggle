@@ -49,6 +49,52 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  void _showQuickHelp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline, color: Colors.purple),
+            SizedBox(width: 8),
+            Text('Comment jouer'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HelpItem(
+              icon: Icons.swipe,
+              text: 'Glissez sur les lettres adjacentes',
+            ),
+            SizedBox(height: 12),
+            _HelpItem(
+              icon: Icons.check_circle,
+              text: 'Appuyez sur le bouton vert pour valider',
+            ),
+            SizedBox(height: 12),
+            _HelpItem(
+              icon: Icons.close,
+              text: 'Bouton rouge pour annuler',
+            ),
+            SizedBox(height: 12),
+            _HelpItem(
+              icon: Icons.text_fields,
+              text: 'Minimum 3 lettres par mot',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Compris !'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handleWordSubmit(String word, {List<int>? path}) {
     final gameProvider = context.read<GameProvider>();
     final result = gameProvider.submitWord(word, path: path);
@@ -86,7 +132,7 @@ class _GameScreenState extends State<GameScreen> {
     final isWideScreen = screenWidth > 600;
 
     return Scaffold(
-      floatingActionButton: _buildZoomButton(context),
+      floatingActionButton: _buildFloatingButtons(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
       body: SafeArea(
         child: Consumer<GameProvider>(
@@ -271,8 +317,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-
-  Widget _buildZoomButton(BuildContext context) {
+  Widget _buildFloatingButtons(BuildContext context) {
     return Consumer<SettingsService>(
       builder: (context, settings, child) {
         return Column(
@@ -311,6 +356,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             const SizedBox(height: 8),
+            // Bouton Zoom
             FloatingActionButton.small(
               heroTag: 'zoom_button',
               backgroundColor: Colors.purple,
@@ -324,6 +370,14 @@ class _GameScreenState extends State<GameScreen> {
                 color: Colors.white,
               ),
             ),
+            const SizedBox(height: 8),
+            // Bouton Aide
+            FloatingActionButton.small(
+              heroTag: 'help_button',
+              backgroundColor: Colors.purple.withValues(alpha: 0.8),
+              onPressed: () => _showQuickHelp(context),
+              child: const Icon(Icons.help_outline, color: Colors.white),
+            ),
           ],
         );
       },
@@ -334,5 +388,28 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _gameProvider?.removeListener(_onGameStateChange);
     super.dispose();
+  }
+}
+
+class _HelpItem extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _HelpItem({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.purple, size: 24),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      ],
+    );
   }
 }
