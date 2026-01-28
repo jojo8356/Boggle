@@ -288,45 +288,42 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
 
-        // Liste des mots trouvés en bas (apparaît seulement si mots présents)
+        // Liste des mots trouvés en bas (s'adapte au contenu)
         if (playerWords.isNotEmpty)
           Container(
-            constraints: const BoxConstraints(maxHeight: 70),
             margin: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: playerWords
-                    .map(
-                      (word) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green[100],
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.green[300]!),
-                        ),
-                        child: Text(
-                          word.text,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.green[800],
-                            fontWeight: FontWeight.w600,
-                          ),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: playerWords
+                  .map(
+                    (word) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green[100],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.green[300]!),
+                      ),
+                      child: Text(
+                        word.text,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green[800],
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                    .toList(),
-              ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
       ],
