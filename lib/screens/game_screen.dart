@@ -288,44 +288,57 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
 
-        // Liste des mots trouvés en bas (s'adapte au contenu)
-        if (playerWords.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.fromLTRB(8, 4, 8, 16),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: playerWords
-                  .map(
-                    (word) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green[100],
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.green[300]!),
-                      ),
-                      child: Text(
-                        word.text,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.green[800],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+        // Bandeau horizontal des mots trouvés (hauteur fixe, scroll horizontal)
+        Container(
+          height: 40,
+          margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
           ),
+          child: playerWords.isEmpty
+              ? Center(
+                  child: Text(
+                    'Vos mots apparaîtront ici',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontStyle: FontStyle.italic,
+                      fontSize: 12,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: playerWords
+                        .map(
+                          (word) => Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.green[300]!),
+                            ),
+                            child: Text(
+                              word.text,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+        ),
       ],
     );
   }
